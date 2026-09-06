@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>李府命名與命理大數據儀表板</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
+    body { font-family: 'Noto Sans TC', sans-serif; }
+    .lucky { background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); border-left: 4px solid #28a745; }
+    .unlucky { background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); border-left: 4px solid #dc3545; }
+    .char-input { font-size: 2rem; text-align: center; width: 5rem; height: 5rem; }
+    .badge-green { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .badge-red { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .badge-blue { background: #cce5ff; color: #004085; border: 1px solid #b8daff; }
+    .badge-yellow { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+    .element-木 { color: #228B22; } .element-火 { color: #DC143C; }
+    .element-土 { color: #B8860B; } .element-金 { color: #B87333; }
+    .element-水 { color: #1E90FF; }
+    .grid-card { transition: all 0.3s ease; }
+    .grid-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+    .pulse-warn { animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+    .datalist-input { position: relative; }
+    .suggestion-box { position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto;
+      background: white; border: 1px solid #ddd; border-radius: 0 0 8px 8px; z-index: 50; display: none; }
+    .suggestion-box.active { display: block; }
+    .suggestion-item { padding: 6px 12px; cursor: pointer; display: flex; justify-content: space-between; }
+    .suggestion-item:hover { background: #f0f7ff; }
+    .tab-active { border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: 700; }
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: #888; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
+    /* Ziwei chart styles - redesigned */
+    .zw-palace { border: 1px solid #ddd; border-radius: 8px; padding: 10px; position: relative;
+      min-height: 190px; background: #fefefe; transition: all 0.2s; overflow: visible; cursor: pointer; }
+    .zw-palace:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.15); z-index: 20; transform: scale(1.02); }
+    .zw-palace-name { font-weight: 700; font-size: 14px; text-align: center; margin-bottom: 4px;
+      background: #e0e7ff; color: #3730a3; border-radius: 4px; padding: 2px 6px; display: inline-block; }
+    .zw-palace-body { font-weight: 700; color: #7c3aed; font-size: 14px; text-align: center; }
+    .zw-stars-main { font-size: 20px; font-weight: 700; line-height: 1.6; }
+    .zw-stars-good { color: #a855f7; font-size: 16px; line-height: 1.5; }
+    .zw-stars-bad { color: #dc2626; font-size: 16px; line-height: 1.5; }
+    .zw-stars-misc { color: #0d9488; font-size: 14px; line-height: 1.4; }
+    .zw-tiangan { position: absolute; bottom: 3px; left: 6px; font-size: 12px; color: #9ca3af; }
+    .zw-dashian { position: absolute; bottom: 3px; right: 6px; font-size: 11px; color: #7c3aed; }
+    .zw-xiaoxian { position: absolute; bottom: 18px; right: 6px; font-size: 10px; color: #1e40af; }
+    .zw-center { grid-column: 2 / 4; grid-row: 2 / 4; border: 2px solid #c4b5fd;
+      border-radius: 12px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      padding: 16px; text-align: center; }
+    .zw-shen { color: #2563eb; font-weight: 700; font-size: 14px; }
+    /* Hover tooltip */
+    .zw-tooltip { display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+      background: #1e1b4b; color: white; padding: 10px 14px; border-radius: 10px; font-size: 13px;
+      width: 280px; z-index: 100; box-shadow: 0 8px 30px rgba(0,0,0,0.3); line-height: 1.6;
+      pointer-events: none; }
+    .zw-palace:hover .zw-tooltip { display: block; }
+    .zw-tooltip::before { content: ''; position: absolute; top: -6px; left: 50%;
+      transform: translateX(-50%); border: 6px solid transparent; border-bottom-color: #1e1b4b; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-gradient-to-r from-indigo-800 via-blue-700 to-indigo-900 text-white shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 py-5 flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-black tracking-wide">李府命名與命理大數據儀表板</h1>
+        <p class="text-blue-200 text-sm mt-1">姓名筆劃 ・ 五格分析 ・ 五行對照 ・ 生辰八字</p>
+      </div>
+      <div class="text-right text-sm text-blue-200">
+        <div>資料來源：康熙字典 63,696 字</div>
+        <div id="loadStatus" class="mt-1">載入中...</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Personal Info Bar (horizontal, collapsible) -->
+  <div class="max-w-7xl mx-auto px-4 pt-4">
+    <details class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl shadow border border-blue-100" open>
+      <summary class="px-4 py-3 cursor-pointer font-bold text-gray-700 flex items-center gap-2 select-none">
+        <span class="w-6 h-6 bg-blue-600 text-white rounded flex items-center justify-center text-xs font-bold">P</span>
+        個人生辰與生理檔案
+        <span class="text-xs text-gray-400 ml-2">（點擊收合）</span>
+      </summary>
+      <div class="px-4 pb-4">
+        <!-- Row 1: Input fields -->
+        <div class="flex flex-wrap gap-3 items-end">
+          <div class="w-20">
+            <label class="block text-xs text-gray-600 mb-1">性別</label>
+            <select id="gender" class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm bg-white">
+              <option value="">-</option><option value="male">男</option><option value="female">女</option>
+            </select>
+          </div>
+          <div style="width:110px">
+            <label class="block text-xs text-gray-600 mb-1">出生年</label>
+            <div class="flex items-center">
+              <button type="button" onclick="stepSelect('birthYear',-1)" class="text-gray-400 hover:text-indigo-600 text-xs font-bold px-0.5">◀</button>
+              <select id="birthYear" class="flex-1 py-1.5 border border-gray-300 rounded text-sm bg-white min-w-0 text-center px-0"><option value="">年</option></select>
+              <button type="button" onclick="stepSelect('birthYear',1)" class="text-gray-400 hover:text-indigo-600 text-xs font-bold px-0.5">▶</button>
+            </div>
+          </div>
+          <div style="width:70px">
+            <label class="block text-xs text-gray-600 mb-1">月</label>
+            <div class="flex items-center">
+              <button type="button" onclick="stepSelect('birthMonth',-1)" class="text-gray-400 hover:text-indigo-600 text-xs font-bold px-0.5">◀</button>
+              <select id="birthMonth" class="flex-1 py-1.5 border border-gray-300 rounded text-sm bg-white min-w-0 text-center px-0"><option value="">月</option></select>
+              <button type="button" onclick="stepSelect('birthMonth',1)" class="text-gray-400 hover:text-indigo-600 text-xs font-bold px-0.5">▶</button>
+            </div>
+          </div>
+          <div style="width:70px">
+            <label class="block text-xs text-gray-600 mb-1">日</label>
+            <div class="flex items-center">
+              <button type="button" onclick="stepSelect('birthDay',-1)" class="text-gray-400 hover:text-indigo-600 text-xs font-bold px-0.5">◀</button>
+              <select id="birthDay" class="flex-1 py-1.5 border border-gray-300 rounded text-sm bg-white min-w-0 text-center px-0"><option value="">日</option></select>
+              <button type="button" onclick="stepSelect('birthDay',1)" class="text-gray-400 hover:text-indigo-600 text-xs font-bold px-0.5">▶</button>
+            </div>
+          </div>
+          <div style="width:140px">
+            <label class="block text-xs text-gray-600 mb-1">時辰</label>
+            <div class="flex items-center">
+              <button type="button" onclick="stepSelect('birthTime',-1)" class="text-gray-400 hover:text-indigo-600 text-xs font-bold px-0.5">◀</button>
+              <select id="birthTime" class="flex-1 py-1.5 border border-gray-300 rounded text-sm bg-white min-w-0 text-center px-0">
+                <option value="">選擇時辰</option>
+                <optgroup label="子時 (23-01)">
+                  <option value="子|23">子・23-00</option>
+                  <option value="子|0">子・00-01</option>
+                </optgroup>
+                <optgroup label="丑時 (01-03)">
+                  <option value="丑|1">丑・01-02</option>
+                  <option value="丑|2">丑・02-03</option>
+                </optgroup>
+                <optgroup label="寅時 (03-05)">
+                  <option value="寅|3">寅・03-04</option>
+                  <option value="寅|4">寅・04-05</option>
+                </optgroup>
+                <optgroup label="卯時 (05-07)">
+                  <option value="卯|5">卯・05-06</option>
+                  <option value="卯|6">卯・06-07</option>
+                </optgroup>
+                <optgroup label="辰時 (07-09)">
+                  <option value="辰|7">辰・07-08</option>
+                  <option value="辰|8">辰・08-09</option>
+                </optgroup>
+                <optgroup label="巳時 (09-11)">
+                  <option value="巳|9">巳・09-10</option>
+                  <option value="巳|10">巳・10-11</option>
+                </optgroup>
+                <optgroup label="午時 (11-13)">
+                  <option value="午|11">午・11-12</option>
+                  <option value="午|12">午・12-13</option>
+                </optgroup>
+                <optgroup label="未時 (13-15)">
+                  <option value="未|13">未・13-14</option>
+                  <option value="未|14">未・14-15</option>
+                </optgroup>
+                <optgroup label="申時 (15-17)">
+                  <option value="申|15">申・15-16</option>
+                  <option value="申|16">申・16-17</option>
+                </optgroup>
+                <optgroup label="酉時 (17-19)">
+                  <option value="酉|17">酉・17-18</option>
+                  <option value="酉|18">酉・18-19</option>
+                </optgroup>
+                <optgroup label="戌時 (19-21)">
+                  <option value="戌|19">戌・19-20</option>
+                  <option value="戌|20">戌・20-21</option>
+                </optgroup>
+                <optgroup label="亥時 (21-23)">
+                  <option value="亥|21">亥・21-22</option>
+                  <option value="亥|22">亥・22-23</option>
+                </optgroup>
+              </select>
+              <button type="button" onclick="stepSelect('birthTime',1)" class="text-gray-400 hover:text-indigo-600 text-xs font-bold px-0.5">▶</button>
+            </div>
+          </div>
+          <div style="width:75px">
+            <label class="block text-xs text-gray-600 mb-1">分鐘</label>
+            <div class="flex items-center">
+              <button type="button" onclick="stepMinute(-1)" class="text-gray-400 hover:text-indigo-600 text-xs font-bold px-0.5">◀</button>
+              <input id="birthMinute" type="number" min="0" max="59" class="flex-1 py-1.5 border border-gray-300 rounded text-sm bg-white min-w-0 text-center px-0" value="0">
+              <button type="button" onclick="stepMinute(1)" class="text-gray-400 hover:text-indigo-600 text-xs font-bold px-0.5">▶</button>
+            </div>
+          </div>
+          <div class="w-32">
+            <label class="block text-xs text-gray-600 mb-1">出生地</label>
+            <select id="birthCity" class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm bg-white">
+              <option value="">選擇</option>
+              <option value="taipei">台北</option><option value="linkou">林口</option><option value="taoyuan">桃園</option>
+              <option value="taichung">台中</option><option value="kaohsiung">高雄</option>
+            </select>
+          </div>
+          <div class="w-20">
+            <label class="block text-xs text-gray-600 mb-1">血型</label>
+            <select id="bloodType" class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm bg-white">
+              <option value="">-</option><option value="A">A</option><option value="B">B</option>
+              <option value="O">O</option><option value="AB">AB</option>
+            </select>
+          </div>
+          <div id="lunarDateInline" class="hidden"></div>
+          <input id="birthDate" type="hidden">
+        </div>
+
+        <!-- Row 2: Auto-calculated results -->
+        <div class="flex flex-wrap gap-2 mt-3 items-stretch">
+          <div class="bg-white rounded-lg px-3 py-2 border text-center min-w-[70px]">
+            <div class="text-xs text-gray-400">生肖</div>
+            <div id="zodiacAnimal" class="text-sm font-bold text-indigo-700">-</div>
+          </div>
+          <div class="bg-white rounded-lg px-3 py-2 border text-center min-w-[70px]">
+            <div class="text-xs text-gray-400">星座</div>
+            <div id="constellation" class="text-sm font-bold text-indigo-700">-</div>
+          </div>
+          <div class="bg-white rounded-lg px-3 py-2 border text-center min-w-[80px]">
+            <div class="text-xs text-gray-400">農曆</div>
+            <div id="lunarDateDisplay" class="text-xs font-bold text-indigo-700">-</div>
+          </div>
+          <div class="bg-purple-50 rounded-lg px-3 py-2 border border-purple-200 text-center min-w-[80px]">
+            <div class="text-xs text-gray-400">紫微五行局</div>
+            <div id="fiveElementBureau" class="text-sm font-black text-purple-700">-</div>
+          </div>
+          <div class="bg-white rounded-lg px-3 py-2 border text-center min-w-[80px]">
+            <div class="text-xs text-gray-400">陰陽</div>
+            <div id="yinYangDisplay" class="text-xs font-bold text-indigo-700">-</div>
+          </div>
+          <div class="bg-orange-50 rounded-lg px-3 py-2 border border-orange-200 text-center min-w-[80px]">
+            <div class="text-xs text-gray-400">上升星座</div>
+            <div id="ascCalc" class="text-sm font-bold text-orange-700">-</div>
+          </div>
+          <div class="bg-indigo-50 rounded-lg px-3 py-2 border border-indigo-200 text-center min-w-[80px]">
+            <div class="text-xs text-gray-400">月亮星座</div>
+            <div id="moonSignCalc" class="text-sm font-bold text-indigo-700">-</div>
+          </div>
+          <div class="bg-purple-50 rounded-lg px-3 py-2 border border-purple-200 text-center min-w-[80px]">
+            <div class="text-xs text-gray-400">紫微主星</div>
+            <div id="ziweiMainStar" class="text-sm font-bold text-purple-700">-</div>
+          </div>
+          <div class="bg-gradient-to-br from-yellow-50 to-amber-100 rounded-lg px-3 py-2 border-2 border-amber-400 text-center min-w-[100px]" title="紫微斗數本命好運指數 - 調整時辰可找最高分">
+            <div class="text-xs text-amber-700 font-semibold">🍀 紫微好運指數</div>
+            <div id="luckScorePanel" class="text-2xl font-black text-amber-700">-</div>
+            <div id="luckScoreLabel" class="text-xs text-amber-600 font-semibold"></div>
+          </div>
+          <div id="sweStatus" class="hidden"></div>
+        </div>
+
+        <!-- Row 2.5: Ascendant & Moon descriptions -->
+        <div id="astroDescPanel" class="hidden mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="bg-orange-50 rounded-lg p-3 border border-orange-200">
+            <div class="text-xs font-bold text-orange-700 mb-1" id="ascDescTitle">上升星座</div>
+            <div class="text-xs text-gray-500 mb-1" id="ascTraits"></div>
+            <div class="text-xs text-gray-700 leading-relaxed" id="ascDesc"></div>
+          </div>
+          <div class="bg-indigo-50 rounded-lg p-3 border border-indigo-200">
+            <div class="text-xs font-bold text-indigo-700 mb-1" id="moonDescTitle">月亮星座</div>
+            <div class="text-xs text-gray-500 mb-1" id="moonNeeds"></div>
+            <div class="text-xs text-gray-700 leading-relaxed" id="moonDesc"></div>
+          </div>
+        </div>
+
+        <!-- Row 2.6: Cross-system naming advice -->
+        <div id="astroNamingAdvice" class="hidden mt-3"></div>
+
+        <!-- Row 3: BaZi + Five Elements -->
+        <div class="flex flex-wrap gap-3 mt-3 items-start">
+          <!-- Left: BaZi + Elements stacked -->
+          <div class="flex-1 min-w-[250px] space-y-2">
+            <div class="bg-white rounded-lg px-3 py-2 border">
+              <div class="text-xs text-gray-400 mb-1">八字</div>
+              <div id="baziDisplay" class="text-sm text-center text-gray-400">填寫生辰後自動計算</div>
+            </div>
+            <div id="baziElements" class="hidden">
+              <div class="bg-white rounded-lg px-3 py-2 border">
+                <div class="text-xs text-gray-400 mb-1">先天五行（八字）</div>
+                <div class="grid grid-cols-5 gap-1 text-center text-xs" id="baziElementGrid"></div>
+                <div id="baziMissing" class="mt-1 text-xs font-semibold text-center"></div>
+              </div>
+              <div id="nameElementRow" class="bg-white rounded-lg px-3 py-2 border mt-2" style="min-height:120px">
+                <div class="text-xs text-green-600 mb-1">＋姓名後五行</div>
+                <div class="text-gray-400 text-center text-xs py-6">請填入完整姓名後顯示</div>
+                <div class="grid grid-cols-5 gap-1 text-center text-xs" id="nameElementGrid"></div>
+                <div id="nameElementDiff" class="mt-1 text-xs text-center"></div>
+              </div>
+            </div>
+          </div>
+          <!-- Right: Radar chart (fixed size) -->
+          <div class="bg-white rounded-lg px-3 py-2 border flex-shrink-0" style="width:260px">
+            <div class="text-xs text-gray-400 text-center mb-1">五行雷達圖</div>
+            <canvas id="radarChart" width="220" height="220"></canvas>
+          </div>
+        </div>
+        <!-- Cross-system warning (own row, full width) -->
+        <div id="crossRefWarning" class="hidden mt-3 space-y-2"></div>
+
+        <!-- Comprehensive Personality Analysis -->
+        <details class="mt-3 bg-white rounded-xl border border-violet-200" open>
+          <summary class="px-4 py-2.5 cursor-pointer font-bold text-violet-800 select-none flex items-center gap-2">
+            🧬 綜合性格分析
+            <span class="text-xs font-normal text-gray-400">（生肖 × 星座 × 紫微 × 血型 統計法彙總）</span>
+          </summary>
+          <div id="personalityPanel" class="px-4 pb-4">
+            <div class="text-gray-400 text-center text-sm py-6">請填入出生日期後顯示綜合性格分析</div>
+          </div>
+        </details>
+
+        <!-- Hidden compatibility fields -->
+        <input id="ascendant" type="hidden">
+        <textarea id="notes" class="hidden"></textarea>
+      </div>
+    </details>
+  </div>
+
+  <!-- Main Content (full width) -->
+  <main class="max-w-7xl mx-auto px-4 py-4 space-y-6">
+
+      <!-- Combined: Name Input + Summary -->
+      <section class="bg-white rounded-2xl shadow-lg p-4">
+        <div class="flex flex-col lg:flex-row gap-4">
+          <!-- Left: Name inputs -->
+          <div class="flex-shrink-0">
+            <h2 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+              <span class="w-6 h-6 bg-indigo-600 text-white rounded flex items-center justify-center text-xs font-bold">1</span>
+              姓名組合與綜合摘要
+            </h2>
+            <div class="flex gap-4 items-start">
+              <div class="flex flex-col items-center">
+                <label class="text-xs font-semibold text-gray-600 mb-1">姓氏</label>
+                <div class="relative datalist-input">
+                  <input id="surname" type="text" class="char-input border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none" value="李" maxlength="2" autocomplete="off">
+                  <div id="surnameSuggestions" class="suggestion-box rounded-xl shadow-lg"></div>
+                </div>
+                <div id="surnameInfo" class="mt-1 text-center text-xs space-y-1"></div>
+              </div>
+              <div class="flex flex-col items-center">
+                <label class="text-xs font-semibold text-gray-600 mb-1">名 1</label>
+                <div class="relative datalist-input">
+                  <input id="name1" type="text" class="char-input border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none" placeholder="字" maxlength="1" autocomplete="off">
+                  <div id="name1Suggestions" class="suggestion-box rounded-xl shadow-lg"></div>
+                </div>
+                <div id="name1Info" class="mt-1 text-center text-xs space-y-1"></div>
+              </div>
+              <div class="flex flex-col items-center">
+                <label class="text-xs font-semibold text-gray-600 mb-1">名 2</label>
+                <div class="relative datalist-input">
+                  <input id="name2" type="text" class="char-input border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none" placeholder="字" maxlength="1" autocomplete="off">
+                  <div id="name2Suggestions" class="suggestion-box rounded-xl shadow-lg"></div>
+                </div>
+                <div id="name2Info" class="mt-1 text-center text-xs space-y-1"></div>
+              </div>
+              <div id="fullName" class="hidden"></div>
+              <div id="totalStrokeSummary" class="hidden"></div>
+            </div>
+          </div>
+          <!-- Right: Summary (appears when name is complete) -->
+          <div id="summaryCard" class="flex-1 border-l pl-4" style="min-height:500px">
+            <div id="summaryContent" class="text-sm space-y-2">
+              <div class="text-gray-400 text-center py-8">
+                <div class="text-base font-semibold mb-1">綜合摘要</div>
+                <div class="text-xs">請填入名1、名2後自動顯示分析結果</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Five Grid Analysis -->
+      <section class="bg-white rounded-2xl shadow-lg p-4">
+        <h2 class="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2">
+          <span class="w-6 h-6 bg-indigo-600 text-white rounded flex items-center justify-center text-xs font-bold">2</span>
+          五格剖象分析
+        </h2>
+        <p class="text-xs text-gray-500 mb-3">ℹ️ 下方五行為「<strong>數理五行</strong>」（依筆劃個位數判定，用於格位生剋），與每字下方的「<strong>部首五行</strong>」（依字形判定，用於八字補救）不同。</p>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3" id="gridCards">
+          <!-- Cards generated by JS -->
+        </div>
+      </section>
+
+      <!-- SanCai Visual (inline, no standalone card) -->
+      <div id="sanCaiCard" class="hidden"></div>
+      <div id="sanCaiContent" class="hidden"></div>
+
+      <!-- Name Recommendation -->
+      <section class="bg-white rounded-2xl shadow-lg p-4">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+            <span class="w-6 h-6 bg-emerald-600 text-white rounded flex items-center justify-center text-xs font-bold">R</span>
+            全吉名字推薦
+            <span id="recPairCount" class="text-sm font-normal text-gray-400 ml-1"></span>
+          </h2>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-gray-500">三才篩選：</span>
+            <label class="flex items-center gap-1 cursor-pointer">
+              <input type="checkbox" id="scFilterDaji" class="accent-green-600" checked onchange="onSanCaiFilterChange()">
+              <span class="text-green-700 font-semibold text-xs">大吉</span>
+            </label>
+            <label class="flex items-center gap-1 cursor-pointer">
+              <input type="checkbox" id="scFilterZhongji" class="accent-blue-600" checked onchange="onSanCaiFilterChange()">
+              <span class="text-blue-700 font-semibold text-xs">中吉</span>
+            </label>
+            <label class="flex items-center gap-1 cursor-pointer">
+              <input type="checkbox" id="scFilterWarn" class="accent-amber-600" onchange="onSanCaiFilterChange()">
+              <span class="text-amber-700 font-semibold text-xs">需注意</span>
+            </label>
+            <span id="scFilterStatus" class="text-xs text-gray-400"></span>
+            <button id="btnModeList" class="hidden"></button>
+            <button id="btnModeInteractive" class="hidden"></button>
+          </div>
+        </div>
+
+        <!-- Priority Filter Checklist -->
+        <div id="priorityChecklist" class="mb-3"></div>
+
+        <!-- Mode A: Full Name List (left: table, right: chars; 手機版改為上下堆疊) -->
+        <div id="recModeList">
+          <div class="flex flex-col lg:flex-row gap-4">
+            <!-- Left: Table -->
+            <div class="w-full lg:w-2/5 overflow-y-auto max-h-[300px] lg:max-h-[600px]">
+              <table class="w-full text-xs">
+                <thead class="sticky top-0 bg-white z-10">
+                  <tr class="bg-emerald-50 text-left">
+                    <th class="px-2 py-1.5 rounded-tl-lg whitespace-nowrap">名1劃</th>
+                    <th class="px-2 py-1.5 whitespace-nowrap">名2劃</th>
+                    <th class="px-2 py-1.5 hidden sm:table-cell">天</th>
+                    <th class="px-2 py-1.5 hidden sm:table-cell">人</th>
+                    <th class="px-2 py-1.5 hidden sm:table-cell">地</th>
+                    <th class="px-2 py-1.5 hidden sm:table-cell">外</th>
+                    <th class="px-2 py-1.5 hidden sm:table-cell">總</th>
+                    <th class="px-2 py-1.5 rounded-tr-lg">五行</th>
+                  </tr>
+                </thead>
+                <tbody id="recListBody" class="divide-y">
+                </tbody>
+              </table>
+            </div>
+            <!-- Right: Char panel -->
+            <div class="w-full lg:w-3/5">
+              <div class="flex items-center justify-end mb-2 gap-2">
+                <label class="flex items-center gap-1.5 cursor-pointer text-xs">
+                  <input type="checkbox" id="filterCommonOnly" checked onchange="onFilterCommonChange()" class="accent-emerald-600">
+                  <span class="text-gray-600">常用國字標準字體</span>
+                </label>
+              </div>
+              <div id="recExpandPanel" class="hidden bg-gray-50 rounded-xl p-3 border">
+                <div id="recExpandContent"></div>
+              </div>
+              <div id="recExpandHint" class="text-sm text-gray-400 text-center py-8">點擊左側筆劃組合查看可用字</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hidden elements for backward compatibility -->
+        <div class="hidden"><select id="recN1Strokes"></select><select id="recN2Strokes"></select><div id="recN1Chars"></div><div id="recN2Chars"></div><div id="recPreview"><div id="recPreviewContent"></div></div><div id="recModeInteractive"></div></div>
+      </section>
+
+  </main>
+
+  <!-- Ziwei Chart Section -->
+  <section id="ziweiSection" class="max-w-7xl mx-auto px-4 pb-4 hidden">
+    <div class="bg-white rounded-2xl shadow-lg p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+        <span class="w-8 h-8 bg-purple-600 text-white rounded-lg flex items-center justify-center text-sm font-bold">4</span>
+        紫微斗數命盤
+        <span id="ziweiChartTitle" class="text-sm font-normal text-gray-500 ml-2"></span>
+      </h2>
+      <div id="ziweiCenterInfo" class="mb-4 p-4 bg-purple-50 rounded-xl border border-purple-200 text-sm text-center"></div>
+      <div class="grid grid-cols-4 gap-1" id="ziweiGrid" style="min-height: 600px;"></div>
+      <div class="mt-4 flex flex-wrap gap-4 text-xs text-gray-500">
+        <span><span style="color:#dc2626;font-weight:700">紅字</span> = 廟/旺（強）</span>
+        <span><span style="color:#6b7280;font-weight:700">灰字</span> = 陷（弱）</span>
+        <span><span style="color:#2563eb;font-weight:700">藍字</span> = 平/得地</span>
+        <span><span class="text-purple-600 font-bold">紫粗</span> = 四化星</span>
+        <span><span class="text-teal-600">青字</span> = 雜曜</span>
+        <span class="text-gray-400">（滑鼠懸停宮位可查看解說）</span>
+      </div>
+      <div id="ziweiNamingAdvice" class="mt-4 hidden"></div>
+    </div>
+  </section>
+
+  <!-- Rules Reference (after ziwei) -->
+  <section class="max-w-7xl mx-auto px-4 pb-4">
+    <div class="bg-white rounded-2xl shadow-lg p-6" id="rulesSection">
+        <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <span class="w-8 h-8 bg-indigo-600 text-white rounded-lg flex items-center justify-center text-sm font-bold">3</span>
+          五格公式與規則說明
+        </h2>
+
+        <!-- Tabs -->
+        <div class="flex border-b mb-4 gap-1">
+          <button class="px-4 py-2 text-sm tab-active" onclick="switchTab(this, 'tabFormula')">計算公式</button>
+          <button class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700" onclick="switchTab(this, 'tabLucky')">吉數清單</button>
+          <button class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700" onclick="switchTab(this, 'tabElement')">五行對照</button>
+          <button class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700" onclick="switchTab(this, 'tabAge')">年齡主運</button>
+        </div>
+
+        <!-- Tab: Formula -->
+        <div id="tabFormula" class="tab-content">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-gray-100">
+                  <th class="px-4 py-2 text-left rounded-tl-lg">格位</th>
+                  <th class="px-4 py-2 text-left">公式</th>
+                  <th class="px-4 py-2 text-left">代表意義</th>
+                  <th class="px-4 py-2 text-left rounded-tr-lg">主運年齡</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y">
+                <tr><td class="px-4 py-3 font-semibold text-purple-700">天格</td><td class="px-4 py-3 font-mono">姓 + 1</td><td class="px-4 py-3">父母、事業、名譽、氣質</td><td class="px-4 py-3">1～12 歲</td></tr>
+                <tr class="bg-gray-50"><td class="px-4 py-3 font-semibold text-blue-700">人格</td><td class="px-4 py-3 font-mono">姓 + 名1</td><td class="px-4 py-3">性格、自我意識、才華、主運</td><td class="px-4 py-3">13～24 歲（求學）</td></tr>
+                <tr><td class="px-4 py-3 font-semibold text-green-700">地格</td><td class="px-4 py-3 font-mono">名1 + 名2</td><td class="px-4 py-3">子女、妻妾、田宅</td><td class="px-4 py-3">25～36 歲</td></tr>
+                <tr class="bg-gray-50"><td class="px-4 py-3 font-semibold text-orange-700">外格</td><td class="px-4 py-3 font-mono">名2 + 1</td><td class="px-4 py-3">朋友、兄弟姊妹、同事、人際</td><td class="px-4 py-3">37～48 歲</td></tr>
+                <tr><td class="px-4 py-3 font-semibold text-red-700">總格</td><td class="px-4 py-3 font-mono">姓 + 名1 + 名2</td><td class="px-4 py-3">一生命運、福德、財富、疾厄</td><td class="px-4 py-3">49 歲～晚年</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-xs text-gray-400 mt-3">* 以上公式適用於單姓兩字名（如「李＿＿」）。</p>
+        </div>
+
+        <!-- Tab: Lucky Numbers -->
+        <div id="tabLucky" class="tab-content hidden">
+          <p class="text-sm text-gray-600 mb-3">以下筆劃數判定為<strong class="text-green-700">「吉」</strong>，不在此清單內則為<strong class="text-red-600">「凶/平」</strong>：</p>
+          <div class="flex flex-wrap gap-2" id="luckyGrid">
+            <!-- Generated by JS -->
+          </div>
+          <p class="text-xs text-gray-400 mt-3">* 82 劃等同 1 劃（循環）。共 33 個吉數。</p>
+        </div>
+
+        <!-- Tab: Five Elements -->
+        <div id="tabElement" class="tab-content hidden">
+          <p class="text-sm text-gray-600 mb-3">依筆劃尾數判定五行屬性：</p>
+          <div class="grid grid-cols-5 gap-3">
+            <div class="text-center p-3 bg-green-50 rounded-xl border border-green-200">
+              <div class="text-2xl">🌳</div>
+              <div class="font-bold text-green-700 text-lg">木</div>
+              <div class="text-xs text-gray-500 mt-1">尾數 1、2</div>
+            </div>
+            <div class="text-center p-3 bg-red-50 rounded-xl border border-red-200">
+              <div class="text-2xl">🔥</div>
+              <div class="font-bold text-red-700 text-lg">火</div>
+              <div class="text-xs text-gray-500 mt-1">尾數 3、4</div>
+            </div>
+            <div class="text-center p-3 bg-yellow-50 rounded-xl border border-yellow-200">
+              <div class="text-2xl">🏔️</div>
+              <div class="font-bold text-yellow-700 text-lg">土</div>
+              <div class="text-xs text-gray-500 mt-1">尾數 5、6</div>
+            </div>
+            <div class="text-center p-3 bg-amber-50 rounded-xl border border-amber-200">
+              <div class="text-2xl">⚙️</div>
+              <div class="font-bold text-amber-700 text-lg">金</div>
+              <div class="text-xs text-gray-500 mt-1">尾數 7、8</div>
+            </div>
+            <div class="text-center p-3 bg-blue-50 rounded-xl border border-blue-200">
+              <div class="text-2xl">💧</div>
+              <div class="font-bold text-blue-700 text-lg">水</div>
+              <div class="text-xs text-gray-500 mt-1">尾數 9、0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Age Periods -->
+        <div id="tabAge" class="tab-content hidden">
+          <p class="text-xs text-gray-500 mb-3">每格主管特定年齡段的運勢，色條僅顯示該格主運的年齡區間。</p>
+          <div class="space-y-3">
+            <div class="flex items-center gap-4 p-3 bg-purple-50 rounded-lg">
+              <span class="w-16 font-bold text-purple-700">天格</span>
+              <div class="flex-1 bg-gray-100 rounded-full h-5 relative">
+                <div class="bg-purple-500 h-5 rounded-full absolute" style="left:0%;width:15%"></div>
+              </div>
+              <span class="text-sm text-gray-600 w-28">1～12 歲</span>
+            </div>
+            <div class="flex items-center gap-4 p-3 bg-blue-50 rounded-lg">
+              <span class="w-16 font-bold text-blue-700">人格</span>
+              <div class="flex-1 bg-gray-100 rounded-full h-5 relative">
+                <div class="bg-blue-500 h-5 rounded-full absolute" style="left:16%;width:15%"></div>
+              </div>
+              <span class="text-sm text-gray-600 w-28">13～24 歲</span>
+            </div>
+            <div class="flex items-center gap-4 p-3 bg-green-50 rounded-lg">
+              <span class="w-16 font-bold text-green-700">地格</span>
+              <div class="flex-1 bg-gray-100 rounded-full h-5 relative">
+                <div class="bg-green-500 h-5 rounded-full absolute" style="left:31%;width:15%"></div>
+              </div>
+              <span class="text-sm text-gray-600 w-28">25～36 歲</span>
+            </div>
+            <div class="flex items-center gap-4 p-3 bg-orange-50 rounded-lg">
+              <span class="w-16 font-bold text-orange-700">外格</span>
+              <div class="flex-1 bg-gray-100 rounded-full h-5 relative">
+                <div class="bg-orange-500 h-5 rounded-full absolute" style="left:46%;width:15%"></div>
+              </div>
+              <span class="text-sm text-gray-600 w-28">37～48 歲</span>
+            </div>
+            <div class="flex items-center gap-4 p-3 bg-red-50 rounded-lg">
+              <span class="w-16 font-bold text-red-700">總格</span>
+              <div class="flex-1 bg-gray-100 rounded-full h-5 relative">
+                <div class="bg-red-500 h-5 rounded-full absolute" style="left:61%;width:39%"></div>
+              </div>
+              <span class="text-sm text-gray-600 w-28">49 歲～晚年</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="max-w-7xl mx-auto px-4 py-6 text-center text-xs text-gray-400">
+    <p>資料來源：康熙字典筆劃對照表（kangxi-strokecount, MIT License）｜僅供參考，命理結果不構成任何建議</p>
+  </footer>
+
+  <script src="kangxi-data.js"></script>
+  <script src="js/lunar.js"></script>
+  <script src="js/ziweistar.js"></script>
+  <script src="js/ziweicore.js"></script>
+  <script src="script.js"></script>
+
+  <!-- Pure JS Western Astrology (no WASM needed) -->
+  <script src="js/astro.js"></script>
+  <script src="js/personality.js"></script>
+</body>
+</html>

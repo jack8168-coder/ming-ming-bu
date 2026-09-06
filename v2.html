@@ -132,6 +132,16 @@
   .card.is-fav { border-color: var(--vermilion); box-shadow: 0 0 0 1px var(--vermilion) inset; }
   .card .fav { position: absolute; top: 8px; right: 8px; background: transparent; border: 0; font-size: 20px; color: var(--vermilion); line-height: 1; padding: 4px 6px; z-index: 2; }
   .card .fav:hover { transform: scale(1.2); }
+  .card .nope { position: absolute; top: 10px; right: 40px; background: transparent; border: 0; font-size: 15px; color: var(--ink-3); line-height: 1; padding: 5px 6px; z-index: 2; opacity: .55; }
+  .card:hover .nope { opacity: 1; }
+  .card .nope:hover { color: var(--vermilion); transform: scale(1.2); }
+  .favbtn small { color: rgba(244,238,226,.7); margin-left: 8px; font-size: 11px; }
+  .dislist { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-family: var(--serif); font-size: 15px; background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; color: var(--ink-2); text-decoration: line-through; }
+  .chip span { text-decoration: none; color: var(--vermilion); font-family: var(--sans); font-size: 12px; }
+  .chip:hover { border-color: var(--vermilion); text-decoration: none; }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 999px; font-size: 13px; z-index: 40; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+  #toast button { background: var(--vermilion); color: #fff; border: 0; border-radius: 999px; padding: 3px 12px; margin-left: 10px; font-weight: 700; }
   .stamp {
     position: absolute; top: 12px; left: 12px; font-family: var(--serif); font-weight: 900; font-size: 12px; letter-spacing: .1em;
     padding: 2px 5px; border: 1.5px solid; border-radius: 3px; transform: rotate(-6deg); opacity: .9; writing-mode: vertical-rl;
@@ -250,7 +260,7 @@
       <input id="weight" type="range" min="0" max="100" value="50" aria-label="傳統與現代的比重">
       <div id="weightLabel" class="vs-label"></div>
     </div>
-    <button id="favOpen" class="favbtn">候選名單<b id="favCount">0</b></button>
+    <button id="favOpen" class="favbtn">候選名單<b id="favCount">0</b><small id="dislikeCount"></small></button>
   </div>
 </header>
 
@@ -357,6 +367,7 @@
 </div>
 
 <div id="scrim"></div>
+<div id="toast" hidden></div>
 <aside id="detail" class="drawer"><button id="detailClose" class="close" aria-label="關閉">×</button><div id="detailBody"></div></aside>
 <aside id="favs" class="drawer"><button id="favClose" class="close" aria-label="關閉">×</button>
   <div class="d-name" style="font-size:28px">候選名單</div>

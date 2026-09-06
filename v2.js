@@ -184,6 +184,7 @@
     homoSpans: new Set(['名字', '姓＋名1', '名2＋姓', '全名', '名1名2＋姓']), // 哪些位置對到要排除
     bazi: null, // {pillars, counts, weak, note}
     favs: loadFavs(),
+    dislikes: loadSet('naming-v2-dislikes'),
   };
 
   // ---------- 計分 ----------
@@ -224,6 +225,7 @@
       if (exclude.has(a.c)) continue;
       for (const b of list) {
         if (a.c === b.c) continue;
+        if (S.dislikes.has(S.surname + '|' + a.c + b.c)) continue;
         const kb = KX[b.c]; if (kb === undefined) continue;
         if (exclude.has(b.c)) continue;
         if (include.length && !include.some(c => c === a.c || c === b.c)) continue;
@@ -341,11 +343,35 @@
   }
 
   // ---------- 我的最愛 ----------
-  function loadFavs() {
-    try { return new Set(JSON.parse(localStorage.getItem('naming-v2-favs') || '[]')); } catch { return new Set(); }
-  }
-  function saveFavs() { try { localStorage.setItem('naming-v2-favs', JSON.stringify([...S.favs])); } catch { /* 私密模式忽略 */ } }
+  function loadSet(key) { try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); } catch { return new Set(); } }
+  function saveSet(key, set) { try { localStorage.setItem(key, JSON.stringify([...set])); } catch { /* 私密模式忽略 */ } }
+  function loadFavs() { return loadSet('naming-v2-favs'); }
+  function saveFavs() { saveSet('naming-v2-favs', S.favs); }
   function favKey(n1, n2) { return S.surname + '|' + n1 + n2; }
+  // 不喜歡清單：按 ✕ 就從列表消失，抽屜裡可以放回來
+  function saveDislikes() { saveSet('naming-v2-dislikes', S.dislikes); }
+  function dislike(nm) {
+    const [n1, n2] = [...nm]; const k = favKey(n1, n2);
+    S.dislikes.add(k); saveDislikes();
+    if (S.favs.has(k)) { S.favs.delete(k); saveFavs(); }
+    S.limit = Math.max(48, document.querySelectorAll('.card').length); // 補一張上來，位置不要跳
+    render(); updateCounts();
+    toast(`已把 ${S.surname}${nm} 放進不喜歡`, () => { undislike(nm); });
+  }
+  function undislike(nm) {
+    const [n1, n2] = [...nm]; S.dislikes.delete(favKey(n1, n2)); saveDislikes(); render(); updateCounts(); renderFavs();
+  }
+  function updateCounts() {
+    $('favCount').textContent = [...S.favs].filter(x => x.startsWith(S.surname + '|')).length;
+    const d = [...S.dislikes].filter(x => x.startsWith(S.surname + '|')).length;
+    $('dislikeCount').textContent = d ? `✕ ${d}` : '';
+  }
+  let toastTimer = null;
+  function toast(msg, undo) {
+    const t = $('toast'); t.innerHTML = `${esc(msg)} ${undo ? '<button id="toastUndo">復原</button>' : ''}`;
+    t.hidden = false; if (undo) $('toastUndo').addEventListener('click', () => { undo(); t.hidden = true; });
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 5000);
+  }
 
   // ---------- DOM ----------
   const $ = id => document.getElementById(id);
@@ -387,6 +413,7 @@
     const meaning = c.cur ? c.cur.meaning : `${c.a.m}・${c.b.m}`;
     return `<article class="card ${fav ? 'is-fav' : ''}" data-key="${esc(c.key)}" style="--i:${Math.min(i, 24)}">
       <button class="fav" data-fav="${esc(c.key)}" title="加入候選" aria-label="加入候選">${fav ? '♥' : '♡'}</button>
+      <button class="nope" data-nope="${esc(c.key)}" title="不喜歡，以後不要再出現" aria-label="不喜歡">✕</button>
       <div class="stamp stamp-${sc.overall === '大吉' ? 'a' : sc.overall === '中吉' ? 'b' : 'c'}">${sc.overall}</div>
       <div class="name"><span class="sur">${esc(S.surname)}</span><span>${esc(c.a.c)}</span><span>${esc(c.b.c)}</span></div>
       <div class="strokes">${c.ka}・${c.kb} 劃 ／ 總格 ${c.g.zong}</div>
@@ -512,7 +539,10 @@
     const items = [...S.favs].filter(k => k.startsWith(S.surname + '|')).map(k => k.split('|')[1]);
     $('favCount').textContent = items.length;
     const box = $('favBody');
-    if (!items.length) { box.innerHTML = '<div class="empty">還沒有候選。在名字卡片上按 ♡ 收藏。</div>'; return; }
+    const dis = [...S.dislikes].filter(k => k.startsWith(S.surname + '|')).map(k => k.split('|')[1]);
+    const disHtml = `<h4 style="margin-top:24px">不喜歡（${dis.length}）<small>　這些不會再出現在列表；按名字可放回去</small></h4>` +
+      (dis.length ? `<div class="dislist">${dis.map(nm => `<button class="chip" data-undislike="${esc(nm)}" title="放回列表">${esc(S.surname + nm)} <span>↩</span></button>`).join('')}</div><div style="margin-top:8px"><button id="dislikeClear" class="btn">全部放回去</button></div>` : '<div class="empty" style="padding:14px">還沒有。在卡片右上角按 ✕ 就會進來。</div>');
+    if (!items.length) { box.innerHTML = '<div class="empty">還沒有候選。在名字卡片上按 ♡ 收藏。</div>' + disHtml; return; }
     const st = strokesOf(S.surname).total;
     const bz = S.bazi && !S.bazi.error ? S.bazi : null;
     const profile = bz ? `<div class="profile">這個人：${esc(bz.zodiac)}・${esc(bz.sign)}・八字日主 ${elTag(bz.dayMaster)}${bz.weak.length ? `・偏弱 ${bz.weak.join('')}` : ''}${bz.zw ? `・${esc(bz.zw.bureau)}・命宮 ${esc(bz.zw.stars.join('、') || '無主星')}` : ''}</div>` : '<div class="profile"><small>左側填生辰後，這裡會一起比較八字與紫微。</small></div>';
@@ -537,7 +567,7 @@
         <td class="fm">${cur ? esc(cur.meaning) : esc((a.m || '—') + '・' + (b.m || '—'))}</td>
         <td><button class="x" data-unfav="${esc(nm)}" title="移除">×</button></td></tr>`;
     }).join('');
-    box.innerHTML = profile + `<div class="tbl"><table class="ft"><thead><tr><th>名字</th><th>筆劃</th><th>三才</th><th>部首・補八字</th><th>紫微</th><th>生肖</th><th>傳統/現代</th><th>寓意</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    box.innerHTML = profile + `<div class="tbl"><table class="ft"><thead><tr><th>名字</th><th>筆劃</th><th>三才</th><th>部首・補八字</th><th>紫微</th><th>生肖</th><th>傳統/現代</th><th>寓意</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` + disHtml;
   }
   function favsText() {
     const st = strokesOf(S.surname).total;
@@ -571,7 +601,7 @@
 
   // ---------- 事件 ----------
   function bind() {
-    $('surname').addEventListener('input', e => { S.surname = e.target.value.trim() || '李'; S.pair = null; render(); renderFavs(); });
+    $('surname').addEventListener('input', e => { S.surname = e.target.value.trim() || '李'; S.pair = null; render(); renderFavs(); updateCounts(); });
     document.querySelectorAll('[data-gender]').forEach(b => b.addEventListener('click', () => { S.gender = b.dataset.gender; setSeg('gender', b); render(); }));
     document.querySelectorAll('[data-style]').forEach(b => b.addEventListener('click', () => { S.style = b.dataset.style; setSeg('style', b); render(); }));
     document.querySelectorAll('[data-sancai]').forEach(b => b.addEventListener('click', () => { S.sancai = b.dataset.sancai; setSeg('sancai', b); render(); }));
@@ -592,6 +622,8 @@
     $('grid').addEventListener('click', e => {
       const fb = e.target.closest('[data-fav]');
       if (fb) { toggleFav(fb.dataset.fav); return; }
+      const nb = e.target.closest('[data-nope]');
+      if (nb) { dislike(nb.dataset.nope); return; }
       const c = e.target.closest('.card'); if (c) { const [n1, n2] = [...c.dataset.key]; openDetail(n1, n2); }
     });
     $('pairTable').addEventListener('click', e => { const tr = e.target.closest('tr[data-pair]'); if (!tr) return; S.pair = S.pair === tr.dataset.pair ? null : tr.dataset.pair; S.limit = 48; render(); });
@@ -601,6 +633,8 @@
     $('favClose').addEventListener('click', () => $('favs').classList.remove('open'));
     $('favBody').addEventListener('click', e => {
       const u = e.target.closest('[data-unfav]'); if (u) { toggleFav(u.dataset.unfav); renderFavs(); return; }
+      const r = e.target.closest('[data-undislike]'); if (r) { undislike(r.dataset.undislike); return; }
+      const clr = e.target.closest('#dislikeClear'); if (clr) { for (const k of [...S.dislikes]) if (k.startsWith(S.surname + '|')) S.dislikes.delete(k); saveDislikes(); render(); updateCounts(); renderFavs(); return; }
       const o = e.target.closest('[data-open]'); if (o) { const [n1, n2] = [...o.dataset.open]; openDetail(n1, n2); }
     });
     $('favCopy').addEventListener('click', () => { const t = favsText(); if (!t) return; navigator.clipboard.writeText(t).then(() => flash($('favCopy'), '已複製')).catch(() => flash($('favCopy'), '複製失敗')); });
@@ -664,6 +698,6 @@
     updateVs();
     bind();
     render();
-    $('favCount').textContent = [...S.favs].filter(x => x.startsWith(S.surname + '|')).length;
+    updateCounts();
   });
 })();

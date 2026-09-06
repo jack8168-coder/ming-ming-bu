@@ -82,6 +82,8 @@
   .chips button[data-need=土] { color: var(--wx-土); } .chips button[data-need=金] { color: var(--wx-金); } .chips button[data-need=水] { color: var(--wx-水); }
   .chk { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 4px 0; cursor: pointer; }
   .chk input { accent-color: var(--vermilion); }
+  .subchk { margin: 0 0 6px 18px; padding-left: 8px; border-left: 2px solid var(--line); }
+  .subchk .chk { font-size: 12px; color: var(--ink-2); margin: 2px 0; }
   .field input[type=text] { width: 100%; }
   details.bz { border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; margin-top: 8px; background: rgba(255,255,255,.4); }
   details.bz summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--ink-2); }
@@ -296,7 +298,15 @@
     </div>
     <div class="field"><span class="lbl">字的取捨</span>
       <label class="chk"><input type="checkbox" id="avoidHot">避開近年常見字（宸、恩、睿、梓…）</label>
+      <label class="chk"><input type="checkbox" id="noAwkward" checked>排除唸起來拗口的（同調、同音、恩安這種連音）</label>
       <label class="chk"><input type="checkbox" id="noHomo" checked>排除諧音尷尬的名字（落塵、若愚、生意…）</label>
+      <div id="homoSpans" class="subchk">
+        <label class="chk"><input type="checkbox" data-hspan="名字" checked>名字兩字（洛丞→落塵）</label>
+        <label class="chk"><input type="checkbox" data-hspan="姓＋名1" checked>姓＋名1（李沛→理賠）</label>
+        <label class="chk"><input type="checkbox" data-hspan="名2＋姓" checked>名2＋姓，英文順序（丞李→成立）</label>
+        <label class="chk"><input type="checkbox" data-hspan="全名" checked>全名三字</label>
+        <label class="chk"><input type="checkbox" data-hspan="名1名2＋姓" checked>名1名2＋姓，英文順序</label>
+      </div>
       <label for="include" style="font-size:12px;color:var(--ink-3)">一定要有的字（任一）</label>
       <input id="include" type="text" placeholder="例：沐 或 若語（多字＝任一即可）" autocomplete="off">
       <label for="exclude" style="font-size:12px;color:var(--ink-3);margin-top:6px;display:block">不要的字</label>

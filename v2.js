@@ -121,6 +121,18 @@
   }
   function toneLabel(t) { return t === 1 || t === 2 ? '平' : '仄'; }
 
+  // ---------- 順口檢查（聲調、連音） ----------
+  // 回傳問題清單 [{key,label,why}]；資料不足（沒聲調／沒拼音）的項目略過，不猜
+  function flowCheck(surTone, a, b) {
+    const issues = [];
+    const p1 = PY[a.c] || null, p2 = PY[b.c] || null;
+    if (surTone && a.t && b.t && surTone === a.t && a.t === b.t) issues.push({ key: '三字同調', label: '三字同調', why: `三個字都是 ${a.t} 聲，唸起來平板` });
+    else if (a.t && b.t && a.t === b.t) issues.push({ key: '兩字同調', label: '名字兩字同調', why: `名字兩字都是 ${a.t} 聲，少了起伏` });
+    if (p1 && p2 && p1 === p2) issues.push({ key: '疊音', label: '兩字同音', why: `兩字都唸 ${p1}` });
+    if (p2 && /^[aeo]/.test(p2)) issues.push({ key: '連音', label: '第二字零聲母', why: `「${b.c}」（${p2}）沒有子音開頭，接在前一個字後面容易黏成一團、聽不清楚` });
+    return issues;
+  }
+
   // ---------- 諧音檢查 ----------
   const PY = (typeof V2_PINYIN !== 'undefined') ? V2_PINYIN : {};
   const SUR_PY = (typeof V2_SURNAME_PY !== 'undefined') ? V2_SURNAME_PY : {};
@@ -142,10 +154,23 @@
     if (!p1) unknown.push(c1); if (!p2) unknown.push(c2);
     const hits = [];
     const look = (parts, span) => { const k = parts.map(normPy).join(' '); const ws = HOMO_BY_KEY.get(k); if (ws) ws.forEach(w => hits.push({ span, word: w })); };
+    const surOk = sp.every(Boolean);
     if (p1 && p2) look([p1, p2], '名字');
-    if (sp.every(Boolean) && p1) look([...sp, p1], '姓＋名1');
-    if (sp.every(Boolean) && p1 && p2) look([...sp, p1, p2], '全名');
-    return { hits, py: [...sp, p1, p2].map(p => p || '?').join(' '), unknown };
+    if (surOk && p1) look([...sp, p1], '姓＋名1');
+    if (surOk && p1 && p2) look([...sp, p1, p2], '全名');
+    // 英文順序：first name + last name → 名1名2＋姓，最後兩個音是「名2＋姓」
+    if (surOk && p2) look([p2, ...sp], '名2＋姓');
+    if (surOk && p1 && p2) look([p1, p2, ...sp], '名1名2＋姓');
+    return { hits, py: [...sp, p1, p2].map(p => p || '?').join(' '), pyEn: [p1, p2, ...sp].map(p => p || '?').join(' '), unknown };
+  }
+  // 五個檢查位置，各自可勾選要不要排除
+  const HOMO_SPANS = ['名字', '姓＋名1', '名2＋姓', '全名', '名1名2＋姓'];
+  const HOMO_SHORT = { '名字': '名字', '姓＋名1': '姓+名1', '名2＋姓': '名2+姓', '全名': '全名', '名1名2＋姓': '英文序' };
+  function homoExcluded(homo) { return homo.hits.some(h => S.homoSpans.has(h.span)); }
+  function homoTag(homo) {
+    const parts = [];
+    for (const span of HOMO_SPANS) { const ws = [...new Set(homo.hits.filter(h => h.span === span).map(h => h.word))]; if (ws.length) parts.push(`${HOMO_SHORT[span]}→${ws.join('、')}`); }
+    return parts.join('；');
   }
 
   // ---------- 狀態 ----------
@@ -155,6 +180,8 @@
     weight: 0.5, sort: 'overall', pair: null, limit: 48,
     zodiac: '', zodiacOnly: false, zodiacAvoidOff: false, // 生肖喜忌字根（目前只有「馬」有書上資料）
     noHomo: true, // 排除對到尷尬諧音的名字
+    noAwkward: true, // 排除拗口（三字同調、兩字同調、兩字同音、第二字零聲母）
+    homoSpans: new Set(['名字', '姓＋名1', '名2＋姓', '全名', '名1名2＋姓']), // 哪些位置對到要排除
     bazi: null, // {pillars, counts, weak, note}
     favs: loadFavs(),
   };
@@ -217,8 +244,10 @@
         const tones = [st0, a.t, b.t];
         const sameTone = st0 && a.t === b.t && b.t === st0;
         const homo = homophoneCheck(S.surname, a.c, b.c);
-        if (S.noHomo && homo.hits.length) continue;
-        cands.push({ key: a.c + b.c, a, b, g, ka, kb, sc, cur, tones, sameTone, homo, hot: a.hot || b.hot });
+        if (S.noHomo && homoExcluded(homo)) continue;
+        const flow = flowCheck(st0, a, b);
+        if (S.noAwkward && flow.length) continue;
+        cands.push({ key: a.c + b.c, a, b, g, ka, kb, sc, cur, tones, sameTone, homo, flow, hot: a.hot || b.hot });
       }
     }
     const cmp = {
@@ -353,8 +382,8 @@
       if (bad.length) tags.push(`<span class="tag tag-bad">${esc(S.zodiac)}忌：${esc(bad.join('・'))}</span>`);
     }
     if (c.hot) tags.push('<span class="tag tag-hot">常見字</span>');
-    if (c.sameTone) tags.push('<span class="tag tag-warn">三字同調</span>');
-    if (c.homo && c.homo.hits.length) tags.push(`<span class="tag tag-bad">諧音：${esc([...new Set(c.homo.hits.map(h => h.word))].join('、'))}</span>`);
+    if (c.flow && c.flow.length) tags.push(`<span class="tag tag-warn">拗口：${esc(c.flow.map(f => f.label).join('、'))}</span>`);
+    if (c.homo && c.homo.hits.length) tags.push(`<span class="tag tag-bad">諧音 ${esc(homoTag(c.homo))}</span>`);
     const meaning = c.cur ? c.cur.meaning : `${c.a.m}・${c.b.m}`;
     return `<article class="card ${fav ? 'is-fav' : ''}" data-key="${esc(c.key)}" style="--i:${Math.min(i, 24)}">
       <button class="fav" data-fav="${esc(c.key)}" title="加入候選" aria-label="加入候選">${fav ? '♥' : '♡'}</button>
@@ -418,7 +447,7 @@
         <div>聲調：${m.t ? `${m.t} 聲（${toneLabel(m.t)}）` : '<small>—</small>'}${m.hot ? ' <span class="tag tag-hot">常見字</span>' : ''}${m.s ? ` <small>現代感 ${m.s}/5</small>` : m.inGloss ? ' <small>不在推薦字庫，沒有現代感評分</small>' : ''}</div>
       </div>`;
     const tones = [st0, a.t, b.t];
-    const toneStr = tones.every(Boolean) ? tones.map(toneLabel).join('') + `（${tones.join('-')}）` + (tones[0] === tones[1] && tones[1] === tones[2] ? ' <span class="tag tag-warn">三字同調，唸起來較平</span>' : ' <small>有起伏</small>') : '<small>姓氏聲調未知，略過</small>';
+    const toneStr = tones.every(Boolean) ? `平仄：${tones.map(toneLabel).join('')}（${tones.join('-')} 聲）` : '<small>有字沒有聲調資料，平仄略過</small>';
     const fav = S.favs.has(favKey(n1, n2));
     box.innerHTML = `
       <div class="d-head">
@@ -456,15 +485,22 @@
       })()}</div>
       <h4>聲調・唸起來順不順</h4>
       <div>${toneStr}</div>
-      <div class="note">一二聲是「平」、三四聲是「仄」。三個字有平有仄，唸起來才有起伏；三字同一個聲調會顯得平板、拗口（例如三個都三聲）。這只是順口參考，不是命理。</div>
+      <div>${(() => {
+        const fl = flowCheck(st0, a, b);
+        const missing = [a, b].filter(m => !m.t || !PY[m.c]).map(m => m.c);
+        let h = fl.length ? fl.map(f => `<div><b class="ng">${esc(f.label)}</b> <small>${esc(f.why)}</small></div>`).join('') : (missing.length ? '' : '<b class="ok">聲調有起伏、沒有連音問題</b>');
+        if (missing.length) h += `<div><small>「${esc(missing.join('、'))}」沒有聲調或讀音資料，順口檢查${fl.length ? '只做了一部分' : '沒辦法做'}。</small></div>`;
+        return h;
+      })()}</div>
+      <div class="note">一二聲是「平」、三四聲是「仄」。三個字有平有仄，唸起來才有起伏；名字兩字同一個聲調會少了起伏，三字同調更平板。第二個字如果是「安、恩、昂（a／e／o 開頭）」這種沒有子音開頭的音，接在前一個字後面容易黏成一團（恩安、詩安）。這只是順口參考，不是命理。</div>
       <h4>諧音・會不會被笑</h4>
       <div>${(() => {
         const h = homophoneCheck(S.surname, n1, n2);
-        let out = `<div>讀音：<code>${esc(h.py)}</code></div>`;
+        let out = `<div>中文順序：<code>${esc(h.py)}</code>　英文順序：<code>${esc(h.pyEn)}</code></div>`;
         if (h.hits.length) out += h.hits.map(x => `<div><b class="ng">${esc(x.span)}</b> 唸起來像「<b class="ng">${esc(x.word)}</b>」</div>`).join('');
-        else out += '<div><b class="ok">沒對到尷尬詞</b></div>';
+        else out += '<div><b class="ok">五個位置都沒對到尷尬詞</b></div>';
         if (h.unknown.length) out += `<div><small>「${esc(h.unknown.join('、'))}」沒有讀音資料，這部分沒檢查。</small></div>`;
-        out += `<div class="note">比對時忽略聲調，前後鼻音、捲舌音都當同音（所以洛丞會對到落塵）。字典目前 ${HOMO.length} 個詞，沒對到不代表沒問題，自己多唸幾遍、也用台語唸看看。</div>`;
+        out += `<div class="note">查五個位置：名字兩字、姓＋名1、全名，以及英文順序的 名2＋姓、名1名2＋姓。比對時忽略聲調，前後鼻音、捲舌音都當同音（所以洛丞會對到落塵）。字典目前 ${HOMO.length} 個詞，沒對到不代表沒問題，自己多唸幾遍、也用台語唸看看。</div>`;
         return out;
       })()}</div>
       ${fromCheck ? '<p class="note">這是你自己輸入的名字，字庫外的字不會有字義與現代感評分，但五格、三才照樣算。</p>' : ''}`;
@@ -491,7 +527,7 @@
       const zwFit = sc.zwFit;
       const homo = homophoneCheck(S.surname, n1, n2);
       return `<tr>
-        <td class="fn" data-open="${esc(nm)}">${esc(S.surname + nm)}${homo.hits.length ? `<br><small class="ng">諧音：${esc([...new Set(homo.hits.map(h => h.word))].join('、'))}</small>` : ''}</td>
+        <td class="fn" data-open="${esc(nm)}">${esc(S.surname + nm)}${homo.hits.length ? `<br><small class="ng">諧音 ${esc(homoTag(homo))}</small>` : ''}</td>
         <td>${a.k}・${b.k}<br><small>總 ${g.zong}</small></td>
         <td><span class="sc sc-${g.sc.overall === '大吉' ? 'a' : g.sc.overall === '中吉' ? 'b' : 'c'}">${g.sc.str} ${g.sc.overall}</span></td>
         <td>${elTag(a.wx)}${elTag(b.wx)}<br><small>${S.need.size ? (cov.length === S.need.size ? '<b class="ok">全補</b>' : cov.length ? '補' + cov.join('') : '<b class="ng">未補</b>') : '未指定'}</small></td>
@@ -545,7 +581,9 @@
     $('zodiacOnly').addEventListener('change', e => { S.zodiacOnly = e.target.checked; render(); });
     $('zodiacAvoidOff').addEventListener('change', e => { S.zodiacAvoidOff = e.target.checked; render(); });
     $('avoidHot').addEventListener('change', e => { S.avoidHot = e.target.checked; render(); });
-    $('noHomo').addEventListener('change', e => { S.noHomo = e.target.checked; render(); });
+    $('noAwkward').addEventListener('change', e => { S.noAwkward = e.target.checked; render(); });
+    $('noHomo').addEventListener('change', e => { S.noHomo = e.target.checked; $('homoSpans').hidden = !S.noHomo; render(); });
+    document.querySelectorAll('[data-hspan]').forEach(cb => cb.addEventListener('change', () => { const k = cb.dataset.hspan; if (cb.checked) S.homoSpans.add(k); else S.homoSpans.delete(k); render(); }));
     $('exclude').addEventListener('input', e => { S.exclude = e.target.value; render(); });
     $('include').addEventListener('input', e => { S.include = e.target.value; render(); });
     $('weight').addEventListener('input', e => { S.weight = e.target.value / 100; updateVs(); render(); });

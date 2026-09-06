@@ -76,6 +76,7 @@ var V2_SURNAME_PY = {
 var V2_HOMOPHONES = [
   // 使用者提出的
   ['落塵','luo chen'], ['若愚','ruo yu'], ['虹吸','hong xi'], ['生意','sheng yi'], ['乘以','cheng yi'],
+  ['成語','cheng yu'], ['一成','yi cheng'], ['一成不變','yi cheng bu bian'], ['臣妾','chen qie'], ['沉魚','chen yu'],
   // 生死病痛
   ['死亡','si wang'], ['死人','si ren'], ['死刑','si xing'], ['死屍','si shi'], ['死者','si zhe'], ['死路','si lu'], ['死心','si xin'],
   ['死機','si ji'], ['死掉','si diao'], ['去死','qu si'], ['找死','zhao si'], ['尋死','xun si'], ['嚇死','xia si'], ['氣死','qi si'],
@@ -189,6 +190,22 @@ var V2_HOMOPHONES = [
   ['尾巴','wei ba'], ['偽裝','wei zhuang'], ['偽鈔','wei chao'], ['畏縮','wei suo'], ['圍毆','wei ou'], ['味精','wei jing'], ['危樓','wei lou'],
   ['照妖','zhao yao'], ['找碴','zhao cha'], ['招惹','zhao re'], ['眼淚','yan lei'], ['咽氣','yan qi'], ['演戲','yan xi'], ['淹水','yan shui'],
   ['煙癮','yan yin'], ['嚴刑','yan xing'], ['鹽巴','yan ba'], ['甲蟲','jia chong'], ['加害','jia hai'], ['價錢','jia qian'], ['舔屁','tian pi'],
+  // 以 li 結尾（給「名2＋李」英文順序、「名1＋李」用）
+  ['成立','cheng li'], ['病例','bing li'], ['暴力','bao li'], ['無力','wu li'], ['無理','wu li'], ['無禮','wu li'], ['吃力','chi li'],
+  ['費力','fei li'], ['乏力','fa li'], ['失利','shi li'], ['失禮','shi li'], ['勢利','shi li'], ['阻力','zu li'], ['苦力','ku li'],
+  ['勞力','lao li'], ['分離','fen li'], ['距離','ju li'], ['逃離','tao li'], ['隔離','ge li'], ['脫離','tuo li'], ['剝離','bo li'],
+  ['玻璃','bo li'], ['修理','xiu li'], ['護理','hu li'], ['料理','liao li'], ['處理','chu li'], ['清理','qing li'], ['整理','zheng li'],
+  ['助理','zhu li'], ['代理','dai li'], ['經理','jing li'], ['總理','zong li'], ['監理','jian li'], ['鴨梨','ya li'], ['鳳梨','feng li'],
+  ['雪梨','xue li'], ['水梨','shui li'], ['茉莉','mo li'], ['狐狸','hu li'], ['奴隸','nu li'], ['犀利','xi li'], ['私利','si li'],
+  ['暴利','bao li'], ['牟利','mou li'], ['壓力','ya li'], ['暴戾','bao li'], ['乖戾','guai li'], ['慘厲','can li'], ['厲厲','li li'],
+  ['沒道理','mei dao li'], ['不合理','bu he li'], ['沒能力','mei neng li'], ['無能力','wu neng li'], ['好無力','hao wu li'], ['很無力','hen wu li'],
+  ['沒魅力','mei mei li'], ['沒體力','mei ti li'], ['不給力','bu gei li'], ['太吃力','tai chi li'], ['被隔離','bei ge li'], ['要分離','yao fen li'],
+  // 以常見姓氏結尾（英文順序用）：王 wang、陳 chen、林 lin、黃 huang、吳 wu、劉 liu、張 zhang
+  ['死亡','si wang'], ['滅亡','mie wang'], ['逃亡','tao wang'], ['陣亡','zhen wang'], ['絕望','jue wang'], ['失望','shi wang'], ['妄想','wang xiang'],
+  ['灰塵','hui chen'], ['粉塵','fen chen'], ['下沉','xia chen'], ['深沉','shen chen'], ['陰沉','yin chen'], ['遲鈍','chi dun'],
+  ['森林','sen lin'], ['山林','shan lin'], ['雨淋','yu lin'], ['濕淋','shi lin'], ['光臨','guang lin'], ['降臨','jiang lin'],
+  ['發黃','fa huang'], ['蛋黃','dan huang'], ['慌慌','huang huang'], ['蟑螂','zhang lang'], ['虛無','xu wu'], ['烏烏','wu wu'], ['嗚嗚','wu wu'],
+  ['漂流','piao liu'], ['逆流','ni liu'], ['暗流','an liu'], ['下流','xia liu'], ['支流','zhi liu'], ['緊張','jin zhang'], ['囂張','xiao zhang'], ['誇張','kua zhang'],
   // 三字（含姓氏才對得到）
   ['肚子疼','du zi teng'], ['豬一群','zhu yi qun'], ['衛生巾','wei sheng jin'], ['熊出沒','xiong chu mo'], ['來月經','lai yue jing'],
   ['禽獸生','qin shou sheng'], ['理不清','li bu qing'], ['離不開','li bu kai'], ['你媽的','ni ma de'], ['沒人愛','mei ren ai'],

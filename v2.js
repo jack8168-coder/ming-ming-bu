@@ -136,8 +136,8 @@
   // ---------- 諧音檢查 ----------
   const PY = (typeof V2_PINYIN !== 'undefined') ? V2_PINYIN : {};
   const SUR_PY = (typeof V2_SURNAME_PY !== 'undefined') ? V2_SURNAME_PY : {};
-  // 台灣國語常混的音視為同音：前後鼻音、捲舌
-  function normPy(p) { return p.toLowerCase().replace(/ng\b/g, 'n').replace(/zh/g, 'z').replace(/ch/g, 'c').replace(/sh/g, 's'); }
+  // 台灣國語常混的音視為同音：前後鼻音、捲舌、l／n 不分（承洛→承諾）
+  function normPy(p) { return p.toLowerCase().replace(/ng\b/g, 'n').replace(/zh/g, 'z').replace(/ch/g, 'c').replace(/sh/g, 's').replace(/^n/, 'l'); }
   const HOMO = [];
   for (const [word, py] of ((typeof V2_HOMOPHONES !== 'undefined') ? V2_HOMOPHONES : [])) {
     const parts = py.split(/\s+/); HOMO.push({ word, py, key: parts.map(normPy).join(' '), n: parts.length });
@@ -527,7 +527,7 @@
         if (h.hits.length) out += h.hits.map(x => `<div><b class="ng">${esc(x.span)}</b> 唸起來像「<b class="ng">${esc(x.word)}</b>」</div>`).join('');
         else out += '<div><b class="ok">五個位置都沒對到尷尬詞</b></div>';
         if (h.unknown.length) out += `<div><small>「${esc(h.unknown.join('、'))}」沒有讀音資料，這部分沒檢查。</small></div>`;
-        out += `<div class="note">查五個位置：名字兩字、姓＋名1、全名，以及英文順序的 名2＋姓、名1名2＋姓。比對時忽略聲調，前後鼻音、捲舌音都當同音（所以洛丞會對到落塵）。字典目前 ${HOMO.length} 個詞，沒對到不代表沒問題，自己多唸幾遍、也用台語唸看看。</div>`;
+        out += `<div class="note">查五個位置：名字兩字、姓＋名1、全名，以及英文順序的 名2＋姓、名1名2＋姓。成語只比前兩個音（一洛→一落千丈）。比對時忽略聲調，前後鼻音、捲舌音、l／n 都當同音（所以洛丞會對到落塵、承洛會對到承諾）。字典目前 ${HOMO.length} 個詞，沒對到不代表沒問題，自己多唸幾遍、也用台語唸看看。</div>`;
         return out;
       })()}</div>
       ${fromCheck ? '<p class="note">這是你自己輸入的名字，字庫外的字不會有字義與現代感評分，但五格、三才照樣算。</p>' : ''}`;

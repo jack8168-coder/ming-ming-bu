@@ -173,6 +173,8 @@
     return parts.join('；');
   }
 
+  const DEFAULT_EXCLUDED = [...'聿旻若瑀丞笙一瑄寬璟霖樂家書宸柏致采卓庭梓'];
+
   // ---------- 狀態 ----------
   const S = {
     surname: '李', gender: 'M', style: 'all', sancai: 'zhongji',
@@ -185,7 +187,10 @@
     bazi: null, // {pillars, counts, weak, note}
     favs: loadFavs(),
     dislikes: loadSet('naming-v2-dislikes'),
+    // 字庫勾選：被劃掉的字不進名字。第一次打開用預設清單（2026-09-11 使用者初步不喜歡的字）
+    excludedChars: (() => { try { const raw = localStorage.getItem('naming-v2-excluded-chars'); return raw === null ? new Set(DEFAULT_EXCLUDED) : new Set(JSON.parse(raw)); } catch { return new Set(DEFAULT_EXCLUDED); } })(),
   };
+  function saveExcluded() { saveSet('naming-v2-excluded-chars', S.excludedChars); }
 
   // ---------- 計分 ----------
   function score(a, b, g) {
@@ -217,7 +222,7 @@
     if (!pairs.size) return { error: `「${S.surname}」（${Sk} 劃）天格 ${Sk + 1} 不是吉數，五格無法全吉。傳統上會改看三才或改用其他派別。`, list: [] };
     const cands = [];
     const okG = p => p.g === 'U' || p.g === S.gender;
-    const exclude = new Set([...S.exclude]);
+    const exclude = new Set([...S.exclude, ...S.excludedChars]);
     const include = [...S.include].filter(c => c.trim());
     const list = [...POOL.values()].filter(okG);
     for (const a of list) {
@@ -580,6 +585,17 @@
     }).join('\n');
   }
 
+  // ---------- 字庫勾選 ----------
+  function renderPicker() {
+    const box = $('charPicker'); if (!box) return;
+    const list = [...POOL.values()].filter(p => p.g === 'U' || p.g === S.gender);
+    const groups = [['通用', list.filter(p => p.g === 'U')], [S.gender === 'M' ? '男生' : '女生', list.filter(p => p.g !== 'U')]];
+    box.innerHTML = groups.map(([lab, arr]) => `<div class="grp">${lab}（${arr.length}）</div>` +
+      arr.map(p => `<button data-pick="${esc(p.c)}" class="${S.excludedChars.has(p.c) ? 'off' : ''}" title="${esc(p.m)}・${KX[p.c] ?? '?'} 劃">${esc(p.c)}</button>`).join('')).join('');
+    const n = list.filter(p => S.excludedChars.has(p.c)).length;
+    $('exclCount').textContent = n ? `（已排除 ${n} 字）` : '';
+  }
+
   // ---------- 八字區 ----------
   function renderBazi() {
     const box = $('baziOut');
@@ -602,7 +618,15 @@
   // ---------- 事件 ----------
   function bind() {
     $('surname').addEventListener('input', e => { S.surname = e.target.value.trim() || '李'; S.pair = null; render(); renderFavs(); updateCounts(); });
-    document.querySelectorAll('[data-gender]').forEach(b => b.addEventListener('click', () => { S.gender = b.dataset.gender; setSeg('gender', b); render(); }));
+    document.querySelectorAll('[data-gender]').forEach(b => b.addEventListener('click', () => { S.gender = b.dataset.gender; setSeg('gender', b); render(); renderPicker(); }));
+    $('charPicker').addEventListener('click', e => {
+      const b = e.target.closest('[data-pick]'); if (!b) return;
+      const c = b.dataset.pick; if (S.excludedChars.has(c)) S.excludedChars.delete(c); else S.excludedChars.add(c);
+      saveExcluded(); renderPicker(); S.limit = 48; render();
+    });
+    $('pickAll').addEventListener('click', () => { for (const p of POOL.values()) if (p.g === 'U' || p.g === S.gender) S.excludedChars.delete(p.c); saveExcluded(); renderPicker(); render(); });
+    $('pickNone').addEventListener('click', () => { for (const p of POOL.values()) if (p.g === 'U' || p.g === S.gender) S.excludedChars.add(p.c); saveExcluded(); renderPicker(); render(); });
+    $('pickDefault').addEventListener('click', () => { S.excludedChars = new Set(DEFAULT_EXCLUDED); saveExcluded(); renderPicker(); render(); });
     document.querySelectorAll('[data-style]').forEach(b => b.addEventListener('click', () => { S.style = b.dataset.style; setSeg('style', b); render(); }));
     document.querySelectorAll('[data-sancai]').forEach(b => b.addEventListener('click', () => { S.sancai = b.dataset.sancai; setSeg('sancai', b); render(); }));
     document.querySelectorAll('[data-need]').forEach(b => b.addEventListener('click', () => { const e = b.dataset.need; if (S.need.has(e)) S.need.delete(e); else S.need.add(e); b.classList.toggle('on', S.need.has(e)); render(); }));
@@ -698,6 +722,7 @@
     updateVs();
     bind();
     render();
+    renderPicker();
     updateCounts();
   });
 })();

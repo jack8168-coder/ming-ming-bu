@@ -83,6 +83,12 @@
   .chk { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 4px 0; cursor: pointer; }
   .chk input { accent-color: var(--vermilion); }
   .subchk { margin: 0 0 6px 18px; padding-left: 8px; border-left: 2px solid var(--line); }
+  .picker { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; max-height: 320px; overflow-y: auto; }
+  .picker .grp { width: 100%; font-size: 11px; color: var(--ink-3); letter-spacing: .1em; margin-top: 6px; }
+  .picker button { font-family: var(--serif); font-size: 17px; line-height: 1; width: 34px; height: 34px; background: #fff; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); padding: 0; }
+  .picker button.off { background: var(--paper-2); color: var(--ink-3); text-decoration: line-through; border-style: dashed; }
+  .picker button:hover { border-color: var(--vermilion); }
+  #exclCount { color: var(--vermilion); font-weight: 700; }
   .subchk .chk { font-size: 12px; color: var(--ink-2); margin: 2px 0; }
   .field input[type=text] { width: 100%; }
   details.bz { border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; margin-top: 8px; background: rgba(255,255,255,.4); }
@@ -319,8 +325,14 @@
       </div>
       <label for="include" style="font-size:12px;color:var(--ink-3)">一定要有的字（任一）</label>
       <input id="include" type="text" placeholder="例：沐 或 若語（多字＝任一即可）" autocomplete="off">
-      <label for="exclude" style="font-size:12px;color:var(--ink-3);margin-top:6px;display:block">不要的字</label>
+      <label for="exclude" style="font-size:12px;color:var(--ink-3);margin-top:6px;display:block">不要的字（快速打字）</label>
       <input id="exclude" type="text" placeholder="例：國正光（直接連著打）" autocomplete="off">
+      <details class="bz" id="pickerBox">
+        <summary>字庫勾選：點字劃掉就不用 <span id="exclCount"></span></summary>
+        <div class="note">灰色劃掉＝排除。目前性別能用的字都在這裡，改性別會換一批。</div>
+        <div id="charPicker" class="picker"></div>
+        <div class="bzrow"><button id="pickAll" class="btn">全部啟用</button><button id="pickNone" class="btn">全部排除</button><button id="pickDefault" class="btn">回到預設</button></div>
+      </details>
     </div>
     <div class="field"><small>字庫 <span id="poolCount"></span> 字・康熙筆劃 <span id="kxCount"></span> 字。字庫外的字可以在下方「自己驗一個」查。</small></div>
   </aside>

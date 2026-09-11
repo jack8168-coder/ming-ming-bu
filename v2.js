@@ -35,6 +35,15 @@
   // 字庫：同字第一筆為準
   const POOL = new Map();
   for (const p of V2_POOL) if (!POOL.has(p.c)) POOL.set(p.c, p);
+  // 擴充字庫：字義字典裡、不在精選字庫的字。沒有人工現代感評分（一律 3）、沒有常見字標記；
+  // 性別只用「女字旁」粗分，其餘當通用。部首五行查對照表，查不到就是「？」。
+  const EXT_FEMALE = new Set([...'娜姍娟媛嬅嫻姝妙娣嫚婧妲姞娉娃姬嬌媚嫄妘娥婭妃']);
+  const EXT = new Map();
+  for (const [c, v] of Object.entries((typeof V2_GLOSS !== 'undefined') ? V2_GLOSS : {})) {
+    if (POOL.has(c) || KX[c] === undefined) continue;
+    EXT.set(c, { c, g: EXT_FEMALE.has(c) ? 'F' : 'U', s: 3, t: v[1], m: v[0], hot: false, wx: D.CHAR_RADICAL_DB[c] || null, ext: true });
+  }
+  function activePool() { return S.poolMode === 'ext' ? [...POOL.values(), ...EXT.values()] : [...POOL.values()]; }
 
   // 精選名（xlsx 匯入）：key = 名1名2
   const CURATED = new Map();
@@ -107,7 +116,7 @@
   }
   function charMeta(c) {
     // 字庫優先；不在字庫的字用對照表；都沒有就誠實標 null
-    const p = POOL.get(c);
+    const p = POOL.get(c) || EXT.get(c);
     const st = strokesOf(c);
     return {
       c,
@@ -180,6 +189,7 @@
     surname: '李', gender: 'M', style: 'all', sancai: 'zhongji',
     need: new Set(), needStrict: false, avoidHot: false, exclude: '', include: '',
     weight: 0.5, sort: 'overall', pair: null, limit: 48,
+    poolMode: 'core', // core＝精選字庫 205 字；ext＝再加字義字典 438 字
     zodiac: '', zodiacOnly: false, zodiacAvoidOff: false, // 生肖喜忌字根（目前只有「馬」有書上資料）
     noHomo: true, // 排除對到尷尬諧音的名字
     noAwkward: true, // 排除拗口（三字同調、兩字同調、兩字同音、第二字零聲母）
@@ -224,7 +234,7 @@
     const okG = p => p.g === 'U' || p.g === S.gender;
     const exclude = new Set([...S.exclude, ...S.excludedChars]);
     const include = [...S.include].filter(c => c.trim());
-    const list = [...POOL.values()].filter(okG);
+    const list = activePool().filter(okG);
     for (const a of list) {
       const ka = KX[a.c]; if (ka === undefined) continue;
       if (exclude.has(a.c)) continue;
@@ -413,6 +423,7 @@
       if (bad.length) tags.push(`<span class="tag tag-bad">${esc(S.zodiac)}忌：${esc(bad.join('・'))}</span>`);
     }
     if (c.hot) tags.push('<span class="tag tag-hot">常見字</span>');
+    if (c.a.ext || c.b.ext) tags.push(`<span class="tag tag-hot">擴充字：${esc([c.a, c.b].filter(x => x.ext).map(x => x.c).join('、'))}</span>`);
     if (c.flow && c.flow.length) tags.push(`<span class="tag tag-warn">拗口：${esc(c.flow.map(f => f.label).join('、'))}</span>`);
     if (c.homo && c.homo.hits.length) tags.push(`<span class="tag tag-bad">諧音 ${esc(homoTag(c.homo))}</span>`);
     const meaning = c.cur ? c.cur.meaning : `${c.a.m}・${c.b.m}`;
@@ -588,8 +599,9 @@
   // ---------- 字庫勾選 ----------
   function renderPicker() {
     const box = $('charPicker'); if (!box) return;
-    const list = [...POOL.values()].filter(p => p.g === 'U' || p.g === S.gender);
-    const groups = [['通用', list.filter(p => p.g === 'U')], [S.gender === 'M' ? '男生' : '女生', list.filter(p => p.g !== 'U')]];
+    const list = activePool().filter(p => p.g === 'U' || p.g === S.gender);
+    const groups = [['通用', list.filter(p => p.g === 'U' && !p.ext)], [S.gender === 'M' ? '男生' : '女生', list.filter(p => p.g !== 'U' && !p.ext)]];
+    if (S.poolMode === 'ext') groups.push(['擴充（字義字典，未評現代感）', list.filter(p => p.ext)]);
     box.innerHTML = groups.map(([lab, arr]) => `<div class="grp">${lab}（${arr.length}）</div>` +
       arr.map(p => `<button data-pick="${esc(p.c)}" class="${S.excludedChars.has(p.c) ? 'off' : ''}" title="${esc(p.m)}・${KX[p.c] ?? '?'} 劃">${esc(p.c)}</button>`).join('')).join('');
     const n = list.filter(p => S.excludedChars.has(p.c)).length;
@@ -628,6 +640,7 @@
     $('pickNone').addEventListener('click', () => { for (const p of POOL.values()) if (p.g === 'U' || p.g === S.gender) S.excludedChars.add(p.c); saveExcluded(); renderPicker(); render(); });
     $('pickDefault').addEventListener('click', () => { S.excludedChars = new Set(DEFAULT_EXCLUDED); saveExcluded(); renderPicker(); render(); });
     document.querySelectorAll('[data-style]').forEach(b => b.addEventListener('click', () => { S.style = b.dataset.style; setSeg('style', b); render(); }));
+    document.querySelectorAll('[data-pool]').forEach(b => b.addEventListener('click', () => { S.poolMode = b.dataset.pool; setSeg('pool', b); S.limit = 48; render(); renderPicker(); }));
     document.querySelectorAll('[data-sancai]').forEach(b => b.addEventListener('click', () => { S.sancai = b.dataset.sancai; setSeg('sancai', b); render(); }));
     document.querySelectorAll('[data-need]').forEach(b => b.addEventListener('click', () => { const e = b.dataset.need; if (S.need.has(e)) S.need.delete(e); else S.need.add(e); b.classList.toggle('on', S.need.has(e)); render(); }));
     $('needStrict').addEventListener('change', e => { S.needStrict = e.target.checked; render(); });
@@ -719,6 +732,7 @@
     const by = $('by'); for (let y = 2027; y >= 1990; y--) by.insertAdjacentHTML('beforeend', `<option value="${y}">${y}</option>`);
     $('kxCount').textContent = Object.keys(KX).length.toLocaleString();
     $('poolCount').textContent = POOL.size;
+    $('extCount').textContent = EXT.size;
     updateVs();
     bind();
     render();

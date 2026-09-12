@@ -43,7 +43,17 @@
     if (POOL.has(c) || KX[c] === undefined) continue;
     EXT.set(c, { c, g: EXT_FEMALE.has(c) ? 'F' : 'U', s: 3, t: v[1], m: v[0], hot: false, wx: D.CHAR_RADICAL_DB[c] || null, ext: true });
   }
-  function activePool() { return S.poolMode === 'ext' ? [...POOL.values(), ...EXT.values()] : [...POOL.values()]; }
+  // 第三層「全部」：舊版常用字清單，只有拼音和聲調，沒字義、沒評分
+  const ALL = new Map();
+  for (const [c, v] of Object.entries((typeof V2_ALL !== 'undefined') ? V2_ALL : {})) {
+    if (POOL.has(c) || EXT.has(c) || KX[c] === undefined) continue;
+    ALL.set(c, { c, g: 'U', s: 3, t: v[1], m: null, hot: false, wx: D.CHAR_RADICAL_DB[c] || null, ext: true, all: true });
+  }
+  function activePool() {
+    if (S.poolMode === 'all') return [...POOL.values(), ...EXT.values(), ...ALL.values()];
+    if (S.poolMode === 'ext') return [...POOL.values(), ...EXT.values()];
+    return [...POOL.values()];
+  }
 
   // 精選名（xlsx 匯入）：key = 名1名2
   const CURATED = new Map();
@@ -116,7 +126,7 @@
   }
   function charMeta(c) {
     // 字庫優先；不在字庫的字用對照表；都沒有就誠實標 null
-    const p = POOL.get(c) || EXT.get(c);
+    const p = POOL.get(c) || EXT.get(c) || ALL.get(c);
     const st = strokesOf(c);
     return {
       c,
@@ -143,7 +153,8 @@
   }
 
   // ---------- 諧音檢查 ----------
-  const PY = (typeof V2_PINYIN !== 'undefined') ? V2_PINYIN : {};
+  const PY = Object.assign({}, (typeof V2_PINYIN !== 'undefined') ? V2_PINYIN : {});
+  for (const [c, v] of Object.entries((typeof V2_ALL !== 'undefined') ? V2_ALL : {})) if (!PY[c]) PY[c] = v[0];
   const SUR_PY = (typeof V2_SURNAME_PY !== 'undefined') ? V2_SURNAME_PY : {};
   // 台灣國語常混的音視為同音：前後鼻音、捲舌、l／n 不分（承洛→承諾）
   function normPy(p) { return p.toLowerCase().replace(/ng\b/g, 'n').replace(/zh/g, 'z').replace(/ch/g, 'c').replace(/sh/g, 's').replace(/^n/, 'l'); }
@@ -189,7 +200,7 @@
     surname: '李', gender: 'M', style: 'all', sancai: 'zhongji',
     need: new Set(), needStrict: false, avoidHot: false, exclude: '', include: '',
     weight: 0.5, sort: 'overall', pair: null, limit: 48,
-    poolMode: 'core', // core＝精選字庫 205 字；ext＝再加字義字典 438 字
+    poolMode: 'all', // core＝精選字庫；ext＝再加字義字典；all＝再加舊版常用字清單（使用者要求全部字都要上）
     pickGroup: 'gender', // 字庫勾選的分組：gender／stroke
     zodiac: '', zodiacOnly: false, zodiacAvoidOff: false, // 生肖喜忌字根（目前只有「馬」有書上資料）
     noHomo: true, // 排除對到尷尬諧音的名字
@@ -424,7 +435,7 @@
       if (bad.length) tags.push(`<span class="tag tag-bad">${esc(S.zodiac)}忌：${esc(bad.join('・'))}</span>`);
     }
     if (c.hot) tags.push('<span class="tag tag-hot">常見字</span>');
-    if (c.a.ext || c.b.ext) tags.push(`<span class="tag tag-hot">擴充字：${esc([c.a, c.b].filter(x => x.ext).map(x => x.c).join('、'))}</span>`);
+    if (c.a.ext || c.b.ext) tags.push(`<span class="tag tag-hot">${c.a.all || c.b.all ? '無字義' : '擴充字'}：${esc([c.a, c.b].filter(x => x.ext).map(x => x.c).join('、'))}</span>`);
     if (c.flow && c.flow.length) tags.push(`<span class="tag tag-warn">拗口：${esc(c.flow.map(f => f.label).join('、'))}</span>`);
     if (c.homo && c.homo.hits.length) tags.push(`<span class="tag tag-bad">諧音 ${esc(homoTag(c.homo))}</span>`);
     const meaning = c.cur ? c.cur.meaning : `${c.a.m}・${c.b.m}`;
@@ -487,7 +498,7 @@
         <div class="cb-c">${esc(m.c)}</div>
         <div class="cb-k">康熙 ${m.k} 劃${m.modern && m.modern !== m.k ? `<small>（現代寫法 ${m.modern} 劃，姓名學以康熙為準）</small>` : ''}</div>
         <div>部首五行 ${elTag(m.wx)} <small>${m.wxSrc ? '依' + m.wxSrc : '未收錄，請自行判斷'}</small></div>
-        <div>字義：${m.m ? esc(m.m) : '<small>字庫和字義字典都沒有這個字</small>'}${m.inGloss ? ' <small>（字義字典）</small>' : ''}</div>
+        <div>字義：${m.m ? esc(m.m) : (ALL.has(m.c) ? '<small>沒有字義資料（舊版常用字清單只有讀音）</small>' : '<small>字庫和字義字典都沒有這個字</small>')}${m.inGloss ? ' <small>（字義字典）</small>' : ''}</div>
         <div>聲調：${m.t ? `${m.t} 聲（${toneLabel(m.t)}）` : '<small>—</small>'}${m.hot ? ' <span class="tag tag-hot">常見字</span>' : ''}${m.s ? ` <small>現代感 ${m.s}/5</small>` : m.inGloss ? ' <small>不在推薦字庫，沒有現代感評分</small>' : ''}</div>
       </div>`;
     const tones = [st0, a.t, b.t];
@@ -615,7 +626,8 @@
       });
     } else {
       groups = [['通用', list.filter(p => p.g === 'U' && !p.ext)], [S.gender === 'M' ? '男生' : '女生', list.filter(p => p.g !== 'U' && !p.ext)]];
-      if (S.poolMode === 'ext') groups.push(['擴充（字義字典，未評現代感）', list.filter(p => p.ext)]);
+      if (S.poolMode !== 'core') groups.push(['擴充（字義字典，未評現代感）', list.filter(p => p.ext && !p.all)]);
+      if (S.poolMode === 'all') groups.push(['全部（舊版常用字清單，無字義）', list.filter(p => p.all)]);
     }
     box.innerHTML = groups.map(([lab, arr]) => `<div class="grp">${lab}（${arr.length}）</div>` +
       arr.map(p => `<button data-pick="${esc(p.c)}" class="${S.excludedChars.has(p.c) ? 'off' : ''}" title="${esc(p.m)}・${KX[p.c] ?? '?'} 劃">${esc(p.c)}</button>`).join('')).join('');
@@ -751,6 +763,8 @@
     $('poolCount').textContent = POOL.size;
     $('extCount').textContent = EXT.size;
     $('extBtnCount').textContent = EXT.size;
+    $('allBtnCount').textContent = ALL.size;
+    $('allCount').textContent = ALL.size;
     updateVs();
     bind();
     render();

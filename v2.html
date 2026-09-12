@@ -333,7 +333,8 @@
       <input id="exclude" type="text" placeholder="例：國正光（直接連著打）" autocomplete="off">
       <details class="bz" id="pickerBox">
         <summary>字庫勾選：點字劃掉就不用 <span id="exclCount"></span></summary>
-        <div class="note">灰色劃掉＝排除。目前性別能用的字都在這裡，改性別會換一批。</div>
+        <div class="note">灰色劃掉＝排除。目前性別能用的字都在這裡，改性別會換一批。想反過來「只留喜歡的字」：先按全部排除，再把喜歡的點回來。</div>
+        <div class="seg" style="margin-top:6px"><button data-pgroup="gender" class="on">依性別分組</button><button data-pgroup="stroke">依筆劃分組</button></div>
         <div id="charPicker" class="picker"></div>
         <div class="bzrow"><button id="pickAll" class="btn">全部啟用</button><button id="pickNone" class="btn">全部排除</button><button id="pickDefault" class="btn">回到預設</button></div>
       </details>

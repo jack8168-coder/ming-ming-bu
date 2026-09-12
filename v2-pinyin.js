@@ -61,6 +61,8 @@ var V2_PINYIN = {
   禎:'zhen', 祺:'qi', 福:'fu', 禹:'yu', 秦:'qin', 秋:'qiu', 科:'ke', 程:'cheng', 稚:'zhi', 穆:'mu', 竣:'jun', 章:'zhang', 笛:'di',
   筑:'zhu', 箏:'zheng', 簡:'jian', 紘:'hong', 紳:'shen', 絃:'xian', 統:'tong', 絜:'jie', 綸:'lun', 綾:'ling', 緣:'yuan', 縈:'ying',
   繹:'yi', 纖:'xian', 耘:'yun', 肯:'ken', 胤:'yin', 臣:'chen', 舜:'shun', 艾:'ai', 子:'zi', 金:'jin',
+  // ---- Excel 第一版補入 ----
+  州:'zhou', 帆:'fan', 亞:'ya', 京:'jing', 份:'fen', 叔:'shu', 姆:'mu', 孟:'meng', 尚:'shang', 岩:'yan', 帛:'bo', 庚:'geng', 忠:'zhong', 亭:'ting', 亮:'liang', 勁:'jing', 姚:'yao', 星:'xing', 倚:'yi', 倩:'qian', 倪:'ni', 凌:'ling', 容:'rong', 桔:'ju', 珀:'po', 夢:'meng', 彰:'zhang', 瑛:'ying', 瑗:'yuan', 碩:'shuo', 嬋:'chan', 漸:'jian', 暮:'mu', 緻:'zhi', 葳:'wei', 葵:'kui', 叡:'rui', 璋:'zhang', 衡:'heng', 橙:'cheng', 熹:'xi', 燕:'yan', 嬪:'pin', 擘:'bo', 濃:'nong', 璞:'pu', 磯:'ji', 穗:'sui', 欒:'luan', 繁:'fan', 誼:'yi',
 };
 
 var V2_SURNAME_PY = {

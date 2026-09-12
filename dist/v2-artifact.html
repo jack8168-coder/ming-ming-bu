@@ -328,7 +328,8 @@
       <input id="exclude" type="text" placeholder="例：國正光（直接連著打）" autocomplete="off">
       <details class="bz" id="pickerBox">
         <summary>字庫勾選：點字劃掉就不用 <span id="exclCount"></span></summary>
-        <div class="note">灰色劃掉＝排除。目前性別能用的字都在這裡，改性別會換一批。</div>
+        <div class="note">灰色劃掉＝排除。目前性別能用的字都在這裡，改性別會換一批。想反過來「只留喜歡的字」：先按全部排除，再把喜歡的點回來。</div>
+        <div class="seg" style="margin-top:6px"><button data-pgroup="gender" class="on">依性別分組</button><button data-pgroup="stroke">依筆劃分組</button></div>
         <div id="charPicker" class="picker"></div>
         <div class="bzrow"><button id="pickAll" class="btn">全部啟用</button><button id="pickNone" class="btn">全部排除</button><button id="pickDefault" class="btn">回到預設</button></div>
       </details>
@@ -1690,6 +1691,8 @@ var V2_GLOSS = {
   纖:['纖細、柔美',1], 耘:['耕耘、勤勞',2], 肯:['肯定、願意',3], 胤:['後代、傳承',4], 臣:['臣子、輔佐',2], 舜:['聖君、賢明',4],
   艾:['艾草、美好',4], 子:['子女、君子',3], 金:['黃金、貴重',1], 玉:['美玉、純潔',4], 珊:['珊瑚、珍寶',1], 琪:['美玉、珍異',2],
   琳:['美玉、琳琅',2], 詩:['詩意、詩情',1], 齊:['整齊、齊全',2], 恩:['恩澤、感恩',1], 宇:['宇宙、氣宇',3],
+  // 使用者 Excel 第一版「常用字」表補入（2026-09-12）
+  州:['州郡、地方',1], 帆:['風帆、一帆風順',2], 亞:['亞洲、次第',4], 京:['京城、大',1], 份:['本分、情份',4], 叔:['叔父、輩分',2], 姆:['保姆、女師',3], 孟:['孟春、長者',4], 尚:['高尚、崇尚',4], 岩:['岩石、堅固',2], 帛:['絲帛、財富',2], 庚:['天干、年歲',1], 忠:['忠誠、忠厚',1], 亭:['亭閣、挺立',2], 亮:['明亮、響亮',4], 勁:['勁力、有勁',4], 姚:['美好、姓氏',2], 星:['星星、明星',1], 倚:['倚靠、依傍',3], 倩:['倩影、美好',4], 倪:['端倪、姓氏',2], 凌:['凌雲、超越',2], 容:['包容、容貌',2], 桔:['桔子、吉利',2], 珀:['琥珀、珍寶',4], 夢:['夢想、美夢',4], 彰:['彰顯、表彰',1], 瑛:['美玉光彩',1], 瑗:['大孔玉璧',4], 碩:['碩大、豐碩',4], 嬋:['嬋娟、美好',2], 漸:['漸進、循序',4], 暮:['暮色、傍晚',4], 緻:['細緻、精緻',4], 葳:['葳蕤、茂盛',1], 葵:['向日葵、向陽',2], 叡:['睿智（叡＝睿）',4], 璋:['玉璋、圭璋',1], 衡:['平衡、權衡',2], 橙:['橙子、橙色',2], 熹:['晨光、熹微',1], 燕:['燕子、安樂',4], 嬪:['嬪妃、宮女',2], 擘:['巨擘、大拇指',4], 濃:['濃厚、濃郁',2], 璞:['璞玉、樸實',2], 磯:['水邊石灘',1], 穗:['稻穗、豐收',4], 欒:['欒樹',2], 繁:['繁盛、繁榮',2], 誼:['情誼、友誼',4],
 };
 
 </script>
@@ -1757,6 +1760,8 @@ var V2_PINYIN = {
   禎:'zhen', 祺:'qi', 福:'fu', 禹:'yu', 秦:'qin', 秋:'qiu', 科:'ke', 程:'cheng', 稚:'zhi', 穆:'mu', 竣:'jun', 章:'zhang', 笛:'di',
   筑:'zhu', 箏:'zheng', 簡:'jian', 紘:'hong', 紳:'shen', 絃:'xian', 統:'tong', 絜:'jie', 綸:'lun', 綾:'ling', 緣:'yuan', 縈:'ying',
   繹:'yi', 纖:'xian', 耘:'yun', 肯:'ken', 胤:'yin', 臣:'chen', 舜:'shun', 艾:'ai', 子:'zi', 金:'jin',
+  // ---- Excel 第一版補入 ----
+  州:'zhou', 帆:'fan', 亞:'ya', 京:'jing', 份:'fen', 叔:'shu', 姆:'mu', 孟:'meng', 尚:'shang', 岩:'yan', 帛:'bo', 庚:'geng', 忠:'zhong', 亭:'ting', 亮:'liang', 勁:'jing', 姚:'yao', 星:'xing', 倚:'yi', 倩:'qian', 倪:'ni', 凌:'ling', 容:'rong', 桔:'ju', 珀:'po', 夢:'meng', 彰:'zhang', 瑛:'ying', 瑗:'yuan', 碩:'shuo', 嬋:'chan', 漸:'jian', 暮:'mu', 緻:'zhi', 葳:'wei', 葵:'kui', 叡:'rui', 璋:'zhang', 衡:'heng', 橙:'cheng', 熹:'xi', 燕:'yan', 嬪:'pin', 擘:'bo', 濃:'nong', 璞:'pu', 磯:'ji', 穗:'sui', 欒:'luan', 繁:'fan', 誼:'yi',
 };
 
 var V2_SURNAME_PY = {
@@ -2153,6 +2158,7 @@ var V2_HOMOPHONES = [
     need: new Set(), needStrict: false, avoidHot: false, exclude: '', include: '',
     weight: 0.5, sort: 'overall', pair: null, limit: 48,
     poolMode: 'core', // core＝精選字庫 205 字；ext＝再加字義字典 438 字
+    pickGroup: 'gender', // 字庫勾選的分組：gender／stroke
     zodiac: '', zodiacOnly: false, zodiacAvoidOff: false, // 生肖喜忌字根（目前只有「馬」有書上資料）
     noHomo: true, // 排除對到尷尬諧音的名字
     noAwkward: true, // 排除拗口（三字同調、兩字同調、兩字同音、第二字零聲母）
@@ -2563,8 +2569,22 @@ var V2_HOMOPHONES = [
   function renderPicker() {
     const box = $('charPicker'); if (!box) return;
     const list = activePool().filter(p => p.g === 'U' || p.g === S.gender);
-    const groups = [['通用', list.filter(p => p.g === 'U' && !p.ext)], [S.gender === 'M' ? '男生' : '女生', list.filter(p => p.g !== 'U' && !p.ext)]];
-    if (S.poolMode === 'ext') groups.push(['擴充（字義字典，未評現代感）', list.filter(p => p.ext)]);
+    let groups;
+    if (S.pickGroup === 'stroke') {
+      // 照 Excel 第一版的排法：依康熙筆劃分組，並標這個姓氏下該筆劃能當名1／名2
+      const st = strokesOf(S.surname); const pairs = st.missing.length ? new Map() : validPairs(st.total);
+      const n1s = new Set(), n2s = new Set();
+      for (const k of pairs.keys()) { const [a, b] = k.split('-').map(Number); n1s.add(a); n2s.add(b); }
+      const by = new Map();
+      for (const p of list) { const k = KX[p.c]; if (!by.has(k)) by.set(k, []); by.get(k).push(p); }
+      groups = [...by.keys()].sort((a, b) => a - b).map(k => {
+        const pos = [n1s.has(k) ? '名1' : '', n2s.has(k) ? '名2' : ''].filter(Boolean).join('・');
+        return [`${k} 劃${pos ? '　可當' + pos : '　⚠ 這個姓配不出全吉'}`, by.get(k)];
+      });
+    } else {
+      groups = [['通用', list.filter(p => p.g === 'U' && !p.ext)], [S.gender === 'M' ? '男生' : '女生', list.filter(p => p.g !== 'U' && !p.ext)]];
+      if (S.poolMode === 'ext') groups.push(['擴充（字義字典，未評現代感）', list.filter(p => p.ext)]);
+    }
     box.innerHTML = groups.map(([lab, arr]) => `<div class="grp">${lab}（${arr.length}）</div>` +
       arr.map(p => `<button data-pick="${esc(p.c)}" class="${S.excludedChars.has(p.c) ? 'off' : ''}" title="${esc(p.m)}・${KX[p.c] ?? '?'} 劃">${esc(p.c)}</button>`).join('')).join('');
     const n = list.filter(p => S.excludedChars.has(p.c)).length;
@@ -2599,6 +2619,8 @@ var V2_HOMOPHONES = [
       const c = b.dataset.pick; if (S.excludedChars.has(c)) S.excludedChars.delete(c); else S.excludedChars.add(c);
       saveExcluded(); renderPicker(); S.limit = 48; render();
     });
+    document.querySelectorAll('[data-pgroup]').forEach(b => b.addEventListener('click', () => { S.pickGroup = b.dataset.pgroup; setSeg('pgroup', b); renderPicker(); }));
+    $('surname').addEventListener('input', () => renderPicker());
     $('pickAll').addEventListener('click', () => { for (const p of POOL.values()) if (p.g === 'U' || p.g === S.gender) S.excludedChars.delete(p.c); saveExcluded(); renderPicker(); render(); });
     $('pickNone').addEventListener('click', () => { for (const p of POOL.values()) if (p.g === 'U' || p.g === S.gender) S.excludedChars.add(p.c); saveExcluded(); renderPicker(); render(); });
     $('pickDefault').addEventListener('click', () => { S.excludedChars = new Set(DEFAULT_EXCLUDED); saveExcluded(); renderPicker(); render(); });

@@ -190,6 +190,7 @@
     need: new Set(), needStrict: false, avoidHot: false, exclude: '', include: '',
     weight: 0.5, sort: 'overall', pair: null, limit: 48,
     poolMode: 'core', // core＝精選字庫 205 字；ext＝再加字義字典 438 字
+    pickGroup: 'gender', // 字庫勾選的分組：gender／stroke
     zodiac: '', zodiacOnly: false, zodiacAvoidOff: false, // 生肖喜忌字根（目前只有「馬」有書上資料）
     noHomo: true, // 排除對到尷尬諧音的名字
     noAwkward: true, // 排除拗口（三字同調、兩字同調、兩字同音、第二字零聲母）
@@ -600,8 +601,22 @@
   function renderPicker() {
     const box = $('charPicker'); if (!box) return;
     const list = activePool().filter(p => p.g === 'U' || p.g === S.gender);
-    const groups = [['通用', list.filter(p => p.g === 'U' && !p.ext)], [S.gender === 'M' ? '男生' : '女生', list.filter(p => p.g !== 'U' && !p.ext)]];
-    if (S.poolMode === 'ext') groups.push(['擴充（字義字典，未評現代感）', list.filter(p => p.ext)]);
+    let groups;
+    if (S.pickGroup === 'stroke') {
+      // 照 Excel 第一版的排法：依康熙筆劃分組，並標這個姓氏下該筆劃能當名1／名2
+      const st = strokesOf(S.surname); const pairs = st.missing.length ? new Map() : validPairs(st.total);
+      const n1s = new Set(), n2s = new Set();
+      for (const k of pairs.keys()) { const [a, b] = k.split('-').map(Number); n1s.add(a); n2s.add(b); }
+      const by = new Map();
+      for (const p of list) { const k = KX[p.c]; if (!by.has(k)) by.set(k, []); by.get(k).push(p); }
+      groups = [...by.keys()].sort((a, b) => a - b).map(k => {
+        const pos = [n1s.has(k) ? '名1' : '', n2s.has(k) ? '名2' : ''].filter(Boolean).join('・');
+        return [`${k} 劃${pos ? '　可當' + pos : '　⚠ 這個姓配不出全吉'}`, by.get(k)];
+      });
+    } else {
+      groups = [['通用', list.filter(p => p.g === 'U' && !p.ext)], [S.gender === 'M' ? '男生' : '女生', list.filter(p => p.g !== 'U' && !p.ext)]];
+      if (S.poolMode === 'ext') groups.push(['擴充（字義字典，未評現代感）', list.filter(p => p.ext)]);
+    }
     box.innerHTML = groups.map(([lab, arr]) => `<div class="grp">${lab}（${arr.length}）</div>` +
       arr.map(p => `<button data-pick="${esc(p.c)}" class="${S.excludedChars.has(p.c) ? 'off' : ''}" title="${esc(p.m)}・${KX[p.c] ?? '?'} 劃">${esc(p.c)}</button>`).join('')).join('');
     const n = list.filter(p => S.excludedChars.has(p.c)).length;
@@ -636,6 +651,8 @@
       const c = b.dataset.pick; if (S.excludedChars.has(c)) S.excludedChars.delete(c); else S.excludedChars.add(c);
       saveExcluded(); renderPicker(); S.limit = 48; render();
     });
+    document.querySelectorAll('[data-pgroup]').forEach(b => b.addEventListener('click', () => { S.pickGroup = b.dataset.pgroup; setSeg('pgroup', b); renderPicker(); }));
+    $('surname').addEventListener('input', () => renderPicker());
     $('pickAll').addEventListener('click', () => { for (const p of POOL.values()) if (p.g === 'U' || p.g === S.gender) S.excludedChars.delete(p.c); saveExcluded(); renderPicker(); render(); });
     $('pickNone').addEventListener('click', () => { for (const p of POOL.values()) if (p.g === 'U' || p.g === S.gender) S.excludedChars.add(p.c); saveExcluded(); renderPicker(); render(); });
     $('pickDefault').addEventListener('click', () => { S.excludedChars = new Set(DEFAULT_EXCLUDED); saveExcluded(); renderPicker(); render(); });

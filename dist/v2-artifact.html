@@ -272,7 +272,7 @@
       <div class="seg"><button data-gender="M" class="on">男</button><button data-gender="F">女</button></div>
     </div>
     <div class="field"><span class="lbl">字庫範圍</span>
-      <div class="seg"><button data-pool="core" class="on">精選 205 字</button><button data-pool="ext">擴充 +438 字</button></div>
+      <div class="seg"><button data-pool="core" class="on">精選 205 字</button><button data-pool="ext">擴充 +<span id="extBtnCount"></span> 字</button></div>
       <small>精選字有人工評的現代感與性別；擴充字來自字義字典，現代感一律算中等、性別只粗分。</small>
     </div>
     <div class="field"><span class="lbl">風格</span>
@@ -2718,6 +2718,7 @@ var V2_HOMOPHONES = [
     $('kxCount').textContent = Object.keys(KX).length.toLocaleString();
     $('poolCount').textContent = POOL.size;
     $('extCount').textContent = EXT.size;
+    $('extBtnCount').textContent = EXT.size;
     updateVs();
     bind();
     render();

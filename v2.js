@@ -750,6 +750,7 @@
     $('kxCount').textContent = Object.keys(KX).length.toLocaleString();
     $('poolCount').textContent = POOL.size;
     $('extCount').textContent = EXT.size;
+    $('extBtnCount').textContent = EXT.size;
     updateVs();
     bind();
     render();

@@ -200,7 +200,7 @@
     surname: '李', gender: 'M', style: 'all', sancai: 'zhongji',
     need: new Set(), needStrict: false, avoidHot: false, exclude: '', include: '',
     weight: 0.5, sort: 'overall', pair: null, limit: 48,
-    poolMode: 'all', // core＝精選字庫；ext＝再加字義字典；all＝再加舊版常用字清單（使用者要求全部字都要上）
+    poolMode: 'all', // 固定用全部字（2026-09-13 使用者拿掉三層切換：所有字一起上，只靠滑桿排序）
     pickGroup: 'gender', // 字庫勾選的分組：gender／stroke
     zodiac: '', zodiacOnly: false, zodiacAvoidOff: false, // 生肖喜忌字根（目前只有「馬」有書上資料）
     noHomo: true, // 排除對到尷尬諧音的名字
@@ -435,7 +435,6 @@
       if (bad.length) tags.push(`<span class="tag tag-bad">${esc(S.zodiac)}忌：${esc(bad.join('・'))}</span>`);
     }
     if (c.hot) tags.push('<span class="tag tag-hot">常見字</span>');
-    if (c.a.ext || c.b.ext) tags.push(`<span class="tag tag-hot">${c.a.all || c.b.all ? '無字義' : '擴充字'}：${esc([c.a, c.b].filter(x => x.ext).map(x => x.c).join('、'))}</span>`);
     if (c.flow && c.flow.length) tags.push(`<span class="tag tag-warn">拗口：${esc(c.flow.map(f => f.label).join('、'))}</span>`);
     if (c.homo && c.homo.hits.length) tags.push(`<span class="tag tag-bad">諧音 ${esc(homoTag(c.homo))}</span>`);
     const meaning = c.cur ? c.cur.meaning : `${c.a.m}・${c.b.m}`;
@@ -625,9 +624,8 @@
         return [`${k} 劃${pos ? '　可當' + pos : '　⚠ 這個姓配不出全吉'}`, by.get(k)];
       });
     } else {
-      groups = [['通用', list.filter(p => p.g === 'U' && !p.ext)], [S.gender === 'M' ? '男生' : '女生', list.filter(p => p.g !== 'U' && !p.ext)]];
-      if (S.poolMode !== 'core') groups.push(['擴充（字義字典，未評現代感）', list.filter(p => p.ext && !p.all)]);
-      if (S.poolMode === 'all') groups.push(['全部（舊版常用字清單，無字義）', list.filter(p => p.all)]);
+      groups = [['通用', list.filter(p => p.g === 'U' && !p.ext)], [S.gender === 'M' ? '男生' : '女生', list.filter(p => p.g !== 'U' && !p.ext)],
+        ['其他常用字（未評現代感）', list.filter(p => p.ext)]];
     }
     box.innerHTML = groups.map(([lab, arr]) => `<div class="grp">${lab}（${arr.length}）</div>` +
       arr.map(p => `<button data-pick="${esc(p.c)}" class="${S.excludedChars.has(p.c) ? 'off' : ''}" title="${esc(p.m)}・${KX[p.c] ?? '?'} 劃">${esc(p.c)}</button>`).join('')).join('');
@@ -669,7 +667,6 @@
     $('pickNone').addEventListener('click', () => { for (const p of POOL.values()) if (p.g === 'U' || p.g === S.gender) S.excludedChars.add(p.c); saveExcluded(); renderPicker(); render(); });
     $('pickDefault').addEventListener('click', () => { S.excludedChars = new Set(DEFAULT_EXCLUDED); saveExcluded(); renderPicker(); render(); });
     document.querySelectorAll('[data-style]').forEach(b => b.addEventListener('click', () => { S.style = b.dataset.style; setSeg('style', b); render(); }));
-    document.querySelectorAll('[data-pool]').forEach(b => b.addEventListener('click', () => { S.poolMode = b.dataset.pool; setSeg('pool', b); S.limit = 48; render(); renderPicker(); }));
     document.querySelectorAll('[data-sancai]').forEach(b => b.addEventListener('click', () => { S.sancai = b.dataset.sancai; setSeg('sancai', b); render(); }));
     document.querySelectorAll('[data-need]').forEach(b => b.addEventListener('click', () => { const e = b.dataset.need; if (S.need.has(e)) S.need.delete(e); else S.need.add(e); b.classList.toggle('on', S.need.has(e)); render(); }));
     $('needStrict').addEventListener('change', e => { S.needStrict = e.target.checked; render(); });
@@ -761,10 +758,7 @@
     const by = $('by'); for (let y = 2027; y >= 1990; y--) by.insertAdjacentHTML('beforeend', `<option value="${y}">${y}</option>`);
     $('kxCount').textContent = Object.keys(KX).length.toLocaleString();
     $('poolCount').textContent = POOL.size;
-    $('extCount').textContent = EXT.size;
-    $('extBtnCount').textContent = EXT.size;
-    $('allBtnCount').textContent = ALL.size;
-    $('allCount').textContent = ALL.size;
+    $('allCount').textContent = POOL.size + EXT.size + ALL.size;
     updateVs();
     bind();
     render();

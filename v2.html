@@ -230,9 +230,8 @@
   .shstatus { font-size: 11px; color: var(--ink-3); width: 100%; display: flex; align-items: center; gap: 5px; }
   .shstatus [class^=dot-] { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
   .dot-on { background: #2f7a3e; } .dot-ro { background: var(--gold); } .dot-off { background: var(--ink-3); }
-  .vbtn { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 2px 9px; font-size: 13px; white-space: nowrap; }
-  .vbtn.on { background: var(--vermilion); border-color: var(--vermilion); color: #fff; }
-  .ft .vote small { color: var(--ink-3); }
+  .lnk { background: none; border: 0; color: var(--vermilion); font-size: 11px; padding: 0 2px; text-decoration: underline; }
+  .ft .notecell small { display: block; color: var(--ink-3); margin-top: 2px; }
   .ft .notecell { min-width: 150px; }
   .ft .note { width: 100%; font-size: 12px; padding: 4px 6px; }
   .tbl { overflow-x: auto; }
@@ -406,6 +405,7 @@
 <script src="v2-gloss.js"></script>
 <script src="v2-pinyin.js"></script>
 <script src="v2-all.js"></script>
+<script src="v2-config.js"></script>
 <script src="v2.js"></script>
 <script>document.getElementById('surname').addEventListener('input', e => { document.getElementById('checkSur').textContent = e.target.value.trim() || '李'; });</script>
 </body>

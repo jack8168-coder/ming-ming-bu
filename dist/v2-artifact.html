@@ -2423,7 +2423,7 @@ var NAMING_SYNC = {
   const SH = { on: !!(CFG.url && CFG.token), nick: (() => { try { return localStorage.getItem('naming-v2-nick') || ''; } catch { return ''; } })(), timer: null, busy: 0, lastErr: '' };
   function nickAsk(force) {
     if (SH.nick && !force) return SH.nick;
-    const v = (prompt('你的稱呼（給家人看的，例如：爸爸、阿嬤、小姑）', SH.nick || '') || '').trim();
+    let v = ''; try { v = (prompt('你的稱呼（給家人看的，例如：爸爸、阿嬤、小姑）', SH.nick || '') || '').trim(); } catch (e) { v = ''; }
     if (v) { SH.nick = v.slice(0, 12); try { localStorage.setItem('naming-v2-nick', SH.nick); } catch { /* ignore */ } setShStatus(); }
     return SH.nick;
   }
@@ -2459,7 +2459,7 @@ var NAMING_SYNC = {
   }
   function shSetStatus(k, status) { const [surname, name] = k.split('|'); return shWrite({ op: 'set', key: k, status: status || '', note: metaOf(k).note || '' }, `${surname}${name} ${status === 'fav' ? '喜歡' : status === 'dislike' ? '不喜歡' : '移除'}`); }
   function shNote(k, note) { const [surname, name] = k.split('|'); return shWrite({ op: 'note', key: k, note }, `${surname}${name} 筆記`); }
-  function shSaveExcluded() { return shWrite({ op: 'excluded', chars: [...S.excludedChars] }, '字庫勾選'); }
+  function shSaveExcluded() { return shWrite({ op: 'excluded', chars: [...S.excludedChars], by: SH.nick || '匿名' }, '字庫勾選'); } // 勾字不問稱呼
   // 延後合併：字庫勾選連點時，重算等手停 400ms、後端等 1.5 秒
   let renderTimer = null, exclTimer = null;
   function renderLater() { clearTimeout(renderTimer); renderTimer = setTimeout(() => { renderTimer = null; render(); }, 400); }

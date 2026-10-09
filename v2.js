@@ -425,7 +425,7 @@
   function shSaveExcluded() { return shWrite({ op: 'excluded', chars: [...S.excludedChars] }, '字庫勾選'); }
   async function shLoad() {
     if (!SH.on || document.hidden) return;
-    try { const j = await shCall({ op: 'load' }); SH.lastErr = ''; applyState(j); }
+    try { const j = await shCall({ op: 'load' }); SH.lastErr = ''; SH.loaded = true; applyState(j); }
     catch (e) { console.error('共用讀取失敗', e); SH.lastErr = String(e.message || e); }
     setShStatus();
   }
@@ -434,12 +434,15 @@
     if (!SH.on) { el.innerHTML = '<span class="dot-off"></span>本機模式：候選、不喜歡只存在這台'; el.title = '還沒設定共用後端（v2-config.js）'; return; }
     const who = SH.nick ? `你是「${esc(SH.nick)}」` : '還沒填稱呼';
     if (SH.lastErr) { el.innerHTML = `<span class="dot-ro"></span>共用連不上（${esc(SH.lastErr)}）・${who} <button id="nickBtn" class="lnk">改稱呼</button>`; }
+    else if (!SH.loaded) { el.innerHTML = '<span class="dot-ro"></span>連線到共用資料中，稍等再按…'; }
     else el.innerHTML = `<span class="dot-on"></span>${SH.busy ? '存檔中…' : '全家共用中'}・${who} <button id="nickBtn" class="lnk">改稱呼</button>`;
     el.title = '家人開同一個網址，看到的候選、不喜歡、筆記都是同一份';
   }
   function initShared() {
     setShStatus();
     if (!SH.on) return;
+    // 共用模式：以後端為準，不拿這台的舊紀錄先畫（否則載入完成前按到的會是舊狀態）
+    S.favs = new Set(); S.dislikes = new Set(); S.meta = new Map(); render(); updateCounts();
     shLoad();
     SH.timer = setInterval(shLoad, 15000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) shLoad(); });

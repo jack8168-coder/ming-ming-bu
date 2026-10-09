@@ -423,8 +423,8 @@
   function shSetStatus(k, status) { const [surname, name] = k.split('|'); return shWrite({ op: 'set', key: k, status: status || '', note: metaOf(k).note || '' }, `${surname}${name} ${status === 'fav' ? '喜歡' : status === 'dislike' ? '不喜歡' : '移除'}`); }
   function shNote(k, note) { const [surname, name] = k.split('|'); return shWrite({ op: 'note', key: k, note }, `${surname}${name} 筆記`); }
   function shSaveExcluded() { return shWrite({ op: 'excluded', chars: [...S.excludedChars] }, '字庫勾選'); }
-  async function shLoad() {
-    if (!SH.on || document.hidden) return;
+  async function shLoad(isPoll) {
+    if (!SH.on || (isPoll && document.hidden)) return; // 分頁藏在背景時不輪詢，但第一次一定載
     try { const j = await shCall({ op: 'load' }); SH.lastErr = ''; SH.loaded = true; applyState(j); }
     catch (e) { console.error('共用讀取失敗', e); SH.lastErr = String(e.message || e); }
     setShStatus();
@@ -444,7 +444,7 @@
     // 共用模式：以後端為準，不拿這台的舊紀錄先畫（否則載入完成前按到的會是舊狀態）
     S.favs = new Set(); S.dislikes = new Set(); S.meta = new Map(); render(); updateCounts();
     shLoad();
-    SH.timer = setInterval(shLoad, 15000);
+    SH.timer = setInterval(() => shLoad(true), 15000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) shLoad(); });
     $('shStatus').addEventListener('click', e => { if (e.target.closest('#nickBtn')) nickAsk(true); });
   }

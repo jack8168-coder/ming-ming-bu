@@ -407,10 +407,13 @@
       if (v.status === 'fav') favs.add(k); else if (v.status === 'dislike') dis.add(k);
       if (v.note && v.note.trim()) meta.set(k, { note: v.note, by: v.by || '' });
     }
+    const before = sig();
     S.favs = favs; S.dislikes = dis; S.meta = meta;
     saveFavs(); saveDislikes(); saveMeta();
-    if (Array.isArray(j.excluded)) { S.excludedChars = new Set(j.excluded); saveSet('naming-v2-excluded-chars', S.excludedChars); renderPicker(); }
-    render(); updateCounts(); if ($('favs').classList.contains('open')) renderFavs();
+    // 自己剛點、還沒送出去的字庫勾選不要被後端舊值蓋掉
+    if (Array.isArray(j.excluded) && !exclTimer) { S.excludedChars = new Set(j.excluded); saveSet('naming-v2-excluded-chars', S.excludedChars); }
+    if (sig() === before) { updateCounts(); return; } // 後端跟畫面一樣，不重算（輪詢每 15 秒一次，別白跑）
+    renderPicker(); render(); updateCounts(); if ($('favs').classList.contains('open')) renderFavs();
   }
   async function shWrite(body, what) {
     if (!SH.on) return;
@@ -423,6 +426,11 @@
   function shSetStatus(k, status) { const [surname, name] = k.split('|'); return shWrite({ op: 'set', key: k, status: status || '', note: metaOf(k).note || '' }, `${surname}${name} ${status === 'fav' ? '喜歡' : status === 'dislike' ? '不喜歡' : '移除'}`); }
   function shNote(k, note) { const [surname, name] = k.split('|'); return shWrite({ op: 'note', key: k, note }, `${surname}${name} 筆記`); }
   function shSaveExcluded() { return shWrite({ op: 'excluded', chars: [...S.excludedChars] }, '字庫勾選'); }
+  // 延後合併：字庫勾選連點時，重算等手停 400ms、後端等 1.5 秒
+  let renderTimer = null, exclTimer = null;
+  function renderLater() { clearTimeout(renderTimer); renderTimer = setTimeout(() => { renderTimer = null; render(); }, 400); }
+  function saveExcludedLater() { clearTimeout(exclTimer); exclTimer = setTimeout(() => { exclTimer = null; saveExcluded(); }, 1500); }
+  const sig = () => JSON.stringify([[...S.favs].sort(), [...S.dislikes].sort(), [...S.meta.entries()].sort(), [...S.excludedChars].sort()]);
   async function shLoad(isPoll) {
     if (!SH.on || (isPoll && document.hidden)) return; // 分頁藏在背景時不輪詢，但第一次一定載
     try { const j = await shCall({ op: 'load' }); SH.lastErr = ''; SH.loaded = true; applyState(j); }
@@ -742,7 +750,10 @@
     $('charPicker').addEventListener('click', e => {
       const b = e.target.closest('[data-pick]'); if (!b) return;
       const c = b.dataset.pick; if (S.excludedChars.has(c)) S.excludedChars.delete(c); else S.excludedChars.add(c);
-      saveExcluded(); renderPicker(); S.limit = 48; render();
+      // 畫面立刻反應（只改這一格），整頁重算與後端寫入都延後合併，連點好幾個字只做一次
+      b.classList.toggle('off', S.excludedChars.has(c));
+      const n = [...document.querySelectorAll('.picker button.off')].length; $('exclCount').textContent = n ? `（已排除 ${n} 字）` : '';
+      S.limit = 48; renderLater(); saveExcludedLater();
     });
     document.querySelectorAll('[data-pgroup]').forEach(b => b.addEventListener('click', () => { S.pickGroup = b.dataset.pgroup; setSeg('pgroup', b); renderPicker(); }));
     $('surname').addEventListener('input', () => renderPicker());

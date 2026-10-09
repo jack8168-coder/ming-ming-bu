@@ -209,10 +209,11 @@
     bazi: null, // {pillars, counts, weak, note}
     favs: loadFavs(),
     dislikes: loadSet('naming-v2-dislikes'),
+    meta: loadMeta(),
     // 字庫勾選：被劃掉的字不進名字。第一次打開用預設清單（2026-09-11 使用者初步不喜歡的字）
     excludedChars: (() => { try { const raw = localStorage.getItem('naming-v2-excluded-chars'); return raw === null ? new Set(DEFAULT_EXCLUDED) : new Set(JSON.parse(raw)); } catch { return new Set(DEFAULT_EXCLUDED); } })(),
   };
-  function saveExcluded() { saveSet('naming-v2-excluded-chars', S.excludedChars); }
+  function saveExcluded() { saveSet('naming-v2-excluded-chars', S.excludedChars); shSaveExcluded(); }
 
   // ---------- 計分 ----------
   function score(a, b, g) {
@@ -375,18 +376,93 @@
   function loadFavs() { return loadSet('naming-v2-favs'); }
   function saveFavs() { saveSet('naming-v2-favs', S.favs); }
   function favKey(n1, n2) { return S.surname + '|' + n1 + n2; }
+  // 每個名字的附加資料：note 筆記、votes {uid:true}（本機模式 uid 用 'me'）
+  function loadMeta() { try { return new Map(Object.entries(JSON.parse(localStorage.getItem('naming-v2-meta') || '{}'))); } catch { return new Map(); } }
+  function saveMeta() { try { localStorage.setItem('naming-v2-meta', JSON.stringify(Object.fromEntries(S.meta))); } catch { /* 私密模式忽略 */ } }
+  function metaOf(k) { return S.meta.get(k) || { note: '', votes: {} }; }
+
+  // ---------- 共用資料（claude.ai 的 db；本機或沒登入時退回瀏覽器儲存） ----------
+  // 文件：names/<id>  { key:'李|洛丞', surname, name, status:'fav'|'dislike', note, votes:{uid:true}, by, at }
+  //       settings/excluded { chars:[...] }
+  const SH = { db: null, user: null, uid: null, canWrite: null, on: false, unsub: [] };
+  function docIdOf(k) { return [...k.replace('|', '')].map(c => c.codePointAt(0).toString(16)).join('-'); }
+  function nameDoc(k) { return SH.db.doc('names/' + docIdOf(k)); }
+  async function shWrite(fn, what) {
+    if (!SH.on) return;
+    try { await fn(); }
+    catch (e) { console.error('共用寫入失敗', what, e); toast(`共用資料寫入失敗（${e && e.code || '?'}）：${what}。這次只存在這台。`); if (e && e.code === 'invalid_argument') { SH.canWrite = false; setShStatus(); } }
+  }
+  function shSetStatus(k, status) {
+    const [surname, name] = k.split('|');
+    const m = metaOf(k);
+    return shWrite(() => status ? nameDoc(k).set({ key: k, surname, name, status, note: m.note || '', votes: m.votes || {}, by: SH.uid, at: new Date().toISOString() }) : nameDoc(k).delete(), `${surname}${name} ${status || '移除'}`);
+  }
+  function shUpdate(k, patch) {
+    const [surname, name] = k.split('|');
+    return shWrite(async () => {
+      const snap = await nameDoc(k).get();
+      if (!snap.exists) { const m = metaOf(k); await nameDoc(k).set({ key: k, surname, name, status: S.favs.has(k) ? 'fav' : S.dislikes.has(k) ? 'dislike' : 'none', note: m.note || '', votes: m.votes || {}, by: SH.uid, at: new Date().toISOString(), ...patch }); }
+      else await nameDoc(k).update(patch);
+    }, `${surname}${name} 更新`);
+  }
+  function shSaveExcluded() { return shWrite(() => SH.db.doc('settings/excluded').set({ chars: [...S.excludedChars], by: SH.uid, at: new Date().toISOString() }), '字庫勾選'); }
+  function setShStatus() {
+    const el = $('shStatus'); if (!el) return;
+    if (!SH.on) { el.innerHTML = '<span class="dot-off"></span>本機模式：候選、不喜歡只存在這台'; el.title = '在 claude.ai 開這一頁並登入，才會跟家人共用'; return; }
+    const who = SH.myName ? `你是 ${esc(SH.myName)}` : '已登入';
+    el.innerHTML = SH.canWrite === false ? `<span class="dot-ro"></span>共用（唯讀）・${who}` : `<span class="dot-on"></span>共用中・${who}`;
+    el.title = SH.canWrite === false ? '你只有檢視權限，按喜歡／不喜歡不會存進共用。請擁有者在分享選單把你設成「可互動」。' : '家人都看得到同一份候選與不喜歡';
+  }
+  async function initShared() {
+    setShStatus();
+    if (typeof claude === 'undefined' || !claude || typeof claude.use !== 'function') return;
+    let db, user;
+    try { [db, user] = await Promise.all([claude.use('db'), claude.use('user')]); } catch (e) { console.error(e); return; }
+    if (!db) return;
+    SH.db = db; SH.user = user; SH.on = true;
+    if (user) { try { SH.uid = await user.id(); SH.canWrite = await user.can('data.write'); SH.myName = (await user.me()).name; } catch (e) { console.error(e); } }
+    setShStatus();
+    // 名字清單：整個 collection 訂一次（家人幾百個名字以內，掃描得起）
+    SH.unsub.push(db.collection('names').onSnapshot(snap => {
+      const favs = new Set(), dis = new Set(), meta = new Map();
+      for (const d of snap.docs) {
+        const v = d.data(); if (!v || !v.key) continue;
+        if (v.status === 'fav') favs.add(v.key); else if (v.status === 'dislike') dis.add(v.key);
+        if ((v.note && v.note.trim()) || (v.votes && Object.keys(v.votes).length)) meta.set(v.key, { note: v.note || '', votes: v.votes || {}, by: v.by || null });
+      }
+      S.favs = favs; S.dislikes = dis; S.meta = meta;
+      render(); updateCounts(); if ($('favs').classList.contains('open')) renderFavs();
+    }, e => { console.error('names 訂閱中斷', e); toast('共用資料連線中斷，重新整理頁面試試'); }));
+    SH.unsub.push(db.doc('settings/excluded').onSnapshot(snap => {
+      if (!snap.exists) return; const v = snap.data(); if (!v || !Array.isArray(v.chars)) return;
+      S.excludedChars = new Set(v.chars); renderPicker(); render();
+    }, e => console.error('settings 訂閱中斷', e)));
+  }
+
   // 不喜歡清單：按 ✕ 就從列表消失，抽屜裡可以放回來
   function saveDislikes() { saveSet('naming-v2-dislikes', S.dislikes); }
   function dislike(nm) {
     const [n1, n2] = [...nm]; const k = favKey(n1, n2);
     S.dislikes.add(k); saveDislikes();
     if (S.favs.has(k)) { S.favs.delete(k); saveFavs(); }
+    shSetStatus(k, 'dislike');
     S.limit = Math.max(48, document.querySelectorAll('.card').length); // 補一張上來，位置不要跳
     render(); updateCounts();
     toast(`已把 ${S.surname}${nm} 放進不喜歡`, () => { undislike(nm); });
   }
   function undislike(nm) {
-    const [n1, n2] = [...nm]; S.dislikes.delete(favKey(n1, n2)); saveDislikes(); render(); updateCounts(); renderFavs();
+    const [n1, n2] = [...nm]; const k = favKey(n1, n2); S.dislikes.delete(k); saveDislikes(); shSetStatus(k, null); render(); updateCounts(); renderFavs();
+  }
+  function setNote(nm, note) {
+    const k = favKey(...[...nm]); const m = { ...metaOf(k), note };
+    if (!note.trim() && !Object.keys(m.votes || {}).length) S.meta.delete(k); else S.meta.set(k, m);
+    saveMeta(); shUpdate(k, { note });
+  }
+  function toggleVote(nm) {
+    const k = favKey(...[...nm]); const uid = SH.on ? SH.uid : 'me'; if (!uid) { toast('沒有登入身分，沒辦法投票'); return; }
+    const m = { ...metaOf(k), votes: { ...(metaOf(k).votes || {}) } };
+    if (m.votes[uid]) delete m.votes[uid]; else m.votes[uid] = true;
+    S.meta.set(k, m); saveMeta(); shUpdate(k, { votes: m.votes }); renderFavs();
   }
   function updateCounts() {
     $('favCount').textContent = [...S.favs].filter(x => x.startsWith(S.surname + '|')).length;
@@ -562,10 +638,18 @@
   function closeDetail() { $('detail').classList.remove('open'); document.body.classList.remove('drawer-open'); }
 
   // ---------- 候選（最愛）面板 ----------
-  function renderFavs() {
+  async function renderFavs() {
     const items = [...S.favs].filter(k => k.startsWith(S.surname + '|')).map(k => k.split('|')[1]);
     $('favCount').textContent = items.length;
     const box = $('favBody');
+    // 票數多的排前面；再依收藏順序
+    const voteCount = nm => Object.keys(metaOf(favKey(...[...nm])).votes || {}).length;
+    items.sort((x, y) => voteCount(y) - voteCount(x));
+    const uidSet = new Set(); for (const nm of items) for (const u of Object.keys(metaOf(favKey(...[...nm])).votes || {})) uidSet.add(u);
+    let ps = {};
+    if (SH.user && uidSet.size) { try { ps = await SH.user.profiles([...uidSet]); } catch (e) { console.error(e); } }
+    const myUid = SH.on ? SH.uid : 'me';
+    const nameOf = u => SH.on ? ((ps[u] && ps[u].name) || '家人') : '我';
     const dis = [...S.dislikes].filter(k => k.startsWith(S.surname + '|')).map(k => k.split('|')[1]);
     const disHtml = `<h4 style="margin-top:24px">不喜歡（${dis.length}）<small>　這些不會再出現在列表；按名字可放回去</small></h4>` +
       (dis.length ? `<div class="dislist">${dis.map(nm => `<button class="chip" data-undislike="${esc(nm)}" title="放回列表">${esc(S.surname + nm)} <span>↩</span></button>`).join('')}</div><div style="margin-top:8px"><button id="dislikeClear" class="btn">全部放回去</button></div>` : '<div class="empty" style="padding:14px">還沒有。在卡片右上角按 ✕ 就會進來。</div>');
@@ -576,15 +660,18 @@
     const rows = items.map(nm => {
       const [n1, n2] = [...nm];
       const a = charMeta(n1), b = charMeta(n2);
-      if (a.k == null || b.k == null) return `<tr><td>${esc(S.surname + nm)}</td><td colspan="8">筆劃查不到</td></tr>`;
+      if (a.k == null || b.k == null) return `<tr><td>${esc(S.surname + nm)}</td><td colspan="10">筆劃查不到</td></tr>`;
       const g = grids(st, a.k, b.k);
       const cur = CURATED.get(nm);
       const sc = score(a, b, g);
       const cov = sc.cov;
       const zwFit = sc.zwFit;
       const homo = homophoneCheck(S.surname, n1, n2);
+      const m = metaOf(favKey(n1, n2)); const voters = Object.keys(m.votes || {}); const mine = !!(myUid && m.votes && m.votes[myUid]);
       return `<tr>
         <td class="fn" data-open="${esc(nm)}">${esc(S.surname + nm)}${homo.hits.length ? `<br><small class="ng">諧音 ${esc(homoTag(homo))}</small>` : ''}</td>
+        <td class="vote"><button class="vbtn ${mine ? 'on' : ''}" data-vote="${esc(nm)}" title="${mine ? '收回我的一票' : '我喜歡這個'}">👍 ${voters.length}</button>${voters.length ? `<br><small>${esc(voters.map(nameOf).join('、'))}</small>` : ''}</td>
+        <td class="notecell"><input class="note" data-note="${esc(nm)}" value="${esc(m.note || '')}" placeholder="筆記：誰喜歡、為什麼…"></td>
         <td>${a.k}・${b.k}<br><small>總 ${g.zong}</small></td>
         <td><span class="sc sc-${g.sc.overall === '大吉' ? 'a' : g.sc.overall === '中吉' ? 'b' : 'c'}">${g.sc.str} ${g.sc.overall}</span></td>
         <td>${elTag(a.wx)}${elTag(b.wx)}<br><small>${S.need.size ? (cov.length === S.need.size ? '<b class="ok">全補</b>' : cov.length ? '補' + cov.join('') : '<b class="ng">未補</b>') : '未指定'}</small></td>
@@ -594,7 +681,7 @@
         <td class="fm">${cur ? esc(cur.meaning) : esc((a.m || '—') + '・' + (b.m || '—'))}</td>
         <td><button class="x" data-unfav="${esc(nm)}" title="移除">×</button></td></tr>`;
     }).join('');
-    box.innerHTML = profile + `<div class="tbl"><table class="ft"><thead><tr><th>名字</th><th>筆劃</th><th>三才</th><th>部首・補八字</th><th>紫微</th><th>生肖</th><th>傳統/現代</th><th>寓意</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` + disHtml;
+    box.innerHTML = profile + `<div class="tbl"><table class="ft"><thead><tr><th>名字</th><th>票</th><th>筆記</th><th>筆劃</th><th>三才</th><th>部首・補八字</th><th>紫微</th><th>生肖</th><th>傳統/現代</th><th>寓意</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` + disHtml;
   }
   function favsText() {
     const st = strokesOf(S.surname).total;
@@ -603,7 +690,8 @@
       const [n1, n2] = [...nm]; const a = charMeta(n1), b = charMeta(n2);
       if (a.k == null || b.k == null) return `${S.surname}${nm}\t筆劃查不到`;
       const g = grids(st, a.k, b.k); const cur = CURATED.get(nm);
-      return `${S.surname}${nm}\t${a.k}+${b.k}劃\t總格${g.zong}\t三才${g.sc.str}${g.sc.overall}\t部首${a.wx || '?'}${b.wx || '?'}\t${cur ? cur.meaning : (a.m || '') + '・' + (b.m || '')}`;
+      const m = metaOf(favKey(n1, n2));
+      return `${S.surname}${nm}\t${Object.keys(m.votes || {}).length}票\t${(m.note || '').replace(/\s+/g, ' ')}\t${a.k}+${b.k}劃\t總格${g.zong}\t三才${g.sc.str}${g.sc.overall}\t部首${a.wx || '?'}${b.wx || '?'}\t${cur ? cur.meaning : (a.m || '') + '・' + (b.m || '')}`;
     }).join('\n');
   }
 
@@ -697,14 +785,16 @@
     $('favBody').addEventListener('click', e => {
       const u = e.target.closest('[data-unfav]'); if (u) { toggleFav(u.dataset.unfav); renderFavs(); return; }
       const r = e.target.closest('[data-undislike]'); if (r) { undislike(r.dataset.undislike); return; }
-      const clr = e.target.closest('#dislikeClear'); if (clr) { for (const k of [...S.dislikes]) if (k.startsWith(S.surname + '|')) S.dislikes.delete(k); saveDislikes(); render(); updateCounts(); renderFavs(); return; }
+      const clr = e.target.closest('#dislikeClear'); if (clr) { const ks = [...S.dislikes].filter(k => k.startsWith(S.surname + '|')); for (const k of ks) S.dislikes.delete(k); saveDislikes(); (async () => { for (const k of ks) await shSetStatus(k, null); })(); render(); updateCounts(); renderFavs(); return; }
+      const v = e.target.closest('[data-vote]'); if (v) { toggleVote(v.dataset.vote); return; }
       const o = e.target.closest('[data-open]'); if (o) { const [n1, n2] = [...o.dataset.open]; openDetail(n1, n2); }
     });
+    $('favBody').addEventListener('change', e => { const n = e.target.closest('[data-note]'); if (n) setNote(n.dataset.note, n.value); });
     $('favCopy').addEventListener('click', () => { const t = favsText(); if (!t) return; navigator.clipboard.writeText(t).then(() => flash($('favCopy'), '已複製')).catch(() => flash($('favCopy'), '複製失敗')); });
     $('favCsv').addEventListener('click', () => {
       // 複製成 tab 分隔的表格文字：貼進 Excel／Google 試算表會自動分欄（不用下載，手機和分享頁都能用）
       const t = favsText(); if (!t) return;
-      const tsv = '名字\t筆劃\t總格\t三才\t部首五行\t寓意\n' + t;
+      const tsv = '名字\t票\t筆記\t筆劃\t總格\t三才\t部首五行\t寓意\n' + t;
       navigator.clipboard.writeText(tsv).then(() => flash($('favCsv'), '已複製，貼到試算表')).catch(() => flash($('favCsv'), '複製失敗'));
     });
     $('checkBtn').addEventListener('click', doCheck);
@@ -740,7 +830,7 @@
   function toggleFav(nm) {
     const [n1, n2] = [...nm]; const k = favKey(n1, n2);
     if (S.favs.has(k)) S.favs.delete(k); else S.favs.add(k);
-    saveFavs();
+    saveFavs(); shSetStatus(k, S.favs.has(k) ? 'fav' : null);
     $('favCount').textContent = [...S.favs].filter(x => x.startsWith(S.surname + '|')).length;
     const c = document.querySelector(`.card[data-key="${CSS.escape(nm)}"]`);
     if (c) { c.classList.toggle('is-fav', S.favs.has(k)); c.querySelector('.fav').textContent = S.favs.has(k) ? '♥' : '♡'; }
@@ -764,5 +854,6 @@
     render();
     renderPicker();
     updateCounts();
+    initShared();
   });
 })();

@@ -3,6 +3,6 @@
 // token：要跟 gas/Code.gs 的 TOKEN 一樣。網頁是公開的，這個值任何開網頁的人都看得到，
 //        它只是擋亂掃的機器人，不是機密；真正的保護是「網址只給家人」。
 var NAMING_SYNC = {
-  url: '',
+  url: 'https://script.google.com/macros/s/AKfycbwvh4VS3L_hTsdAoE9Hu8x9WkCWp157GXXJmKVc-8JaCU8s79oNSkTo1TPHu2-zu4QPDg/exec',
   token: 'oIJ-Pr4jGVn6zQJvKo9qwU-32Fieogit',
 };
